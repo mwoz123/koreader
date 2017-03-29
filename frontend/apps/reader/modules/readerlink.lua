@@ -67,9 +67,9 @@ local function isSwipeToFollowFirstLinkEnabled()
     return G_reader_settings:readSetting("swipe_to_follow_first_link") == true
 end
 
-function ReaderLink:addToMainMenu(menu_items)
+function ReaderLink:addToMainMenu(tab_item_table)
     -- insert table to main reader menu
-    menu_items.follow_links = {
+    table.insert(tab_item_table.navi, {
         text = _("Follow links"),
         sub_item_table = {
             {
@@ -103,7 +103,7 @@ function ReaderLink:addToMainMenu(menu_items)
                 end,
             },
         }
-    }
+    })
 end
 
 function ReaderLink:onSetDimensions(dimen)

@@ -117,12 +117,12 @@ function ReaderHyphenation:onSaveSettings()
     self.ui.doc_settings:saveSetting("hyph_alg", self.hyph_alg)
 end
 
-function ReaderHyphenation:addToMainMenu(menu_items)
+function ReaderHyphenation:addToMainMenu(tab_item_table)
     -- insert table to main reader menu
-    menu_items.hyphenation = {
+    table.insert(tab_item_table.typeset, {
         text = self.hyph_menu_title,
         sub_item_table = self.hyph_table,
-    }
+    })
 end
 
 return ReaderHyphenation

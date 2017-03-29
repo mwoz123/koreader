@@ -79,8 +79,8 @@ function CalibreCompanion:find_calibre_server()
     end
 end
 
-function CalibreCompanion:addToMainMenu(menu_items)
-    menu_items.calibre_wireless_connection = {
+function CalibreCompanion:addToMainMenu(tab_item_table)
+    table.insert(tab_item_table.plugins, {
         text = _("Calibre wireless connection"),
         sub_item_table = {
             {
@@ -98,7 +98,7 @@ function CalibreCompanion:addToMainMenu(menu_items)
                 end
             },
         }
-    }
+    })
 end
 
 function CalibreCompanion:initCalibreMQ(host, port)

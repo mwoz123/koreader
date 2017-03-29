@@ -14,20 +14,20 @@ function ReaderGoto:init()
     self.ui.menu:registerToMainMenu(self)
 end
 
-function ReaderGoto:addToMainMenu(menu_items)
+function ReaderGoto:addToMainMenu(tab_item_table)
     -- insert goto command to main reader menu
-    menu_items.go_to = {
+    table.insert(tab_item_table.navi, {
         text = self.goto_menu_title,
         callback = function()
             self:onShowGotoDialog()
         end,
-    }
-    menu_items.skim_to = {
+    })
+    table.insert(tab_item_table.navi, {
         text = self.skim_menu_title,
         callback = function()
             self:onShowSkimtoDialog()
         end,
-    }
+    })
 end
 
 function ReaderGoto:onShowGotoDialog()

@@ -1,7 +1,6 @@
 local DocumentRegistry = require("document/documentregistry")
 local DocSettings = require("docsettings")
 local ReadHistory = require("readhistory")
-local logger = require("logger")
 local md5 = require("ffi/MD5")
 local util = require("util")
 
@@ -264,16 +263,7 @@ function MyClipping:parseHistoryFile(clippings, history_file, doc_file)
     end
     if lfs.attributes(doc_file, "mode") ~= "file" then return end
     local ok, stored = pcall(dofile, history_file)
-    if ok then
-        if not stored then
-            logger.warn("An empty history file ",
-                        history_file,
-                        "has been found. The book associated is ",
-                        doc_file)
-            return
-        elseif not stored.highlight then
-            return
-        end
+    if ok and stored.highlight then
         local _, docname = util.splitFilePathName(doc_file)
         local title, author = self:getTitle(util.splitFileNameSuffix(docname))
         clippings[title] = {

@@ -1,24 +1,19 @@
-local CenterContainer = require("ui/widget/container/centercontainer")
-local Device = require("device")
-local Event = require("ui/event")
 local InputContainer = require("ui/widget/container/inputcontainer")
-local Screensaver = require("ui/screensaver")
+local CenterContainer = require("ui/widget/container/centercontainer")
 local UIManager = require("ui/uimanager")
-local _ = require("gettext")
+local Device = require("device")
+local Screensaver = require("ui/screensaver")
+local Event = require("ui/event")
 local Screen = require("device").screen
+local _ = require("gettext")
 
 local ReaderMenu = InputContainer:new{
     tab_item_table = nil,
-    menu_items = {},
     registered_widgets = {},
 }
 
 function ReaderMenu:init()
-    self.menu_items = {
-        ["KOMenu:menu_buttons"] = {
-            -- top menu
-        },
-        -- items in top menu
+    self.tab_item_table = {
         navi = {
             icon = "resources/icons/appbar.page.corner.bookmark.png",
         },
@@ -28,7 +23,7 @@ function ReaderMenu:init()
         setting = {
             icon = "resources/icons/appbar.settings.png",
         },
-        tools = {
+        plugins = {
             icon = "resources/icons/appbar.tools.png",
         },
         search = {
@@ -55,9 +50,8 @@ function ReaderMenu:init()
         },
         main = {
             icon = "resources/icons/menu-icon.png",
-        }
+        },
     }
-
     self.registered_widgets = {}
 
     if Device:hasKeys() then
@@ -94,18 +88,21 @@ end
 
 function ReaderMenu:setUpdateItemTable()
     for _, widget in pairs(self.registered_widgets) do
-        widget:addToMainMenu(self.menu_items)
+        widget:addToMainMenu(self.tab_item_table)
     end
 
     -- settings tab
     -- insert common settings
-    for id, common_setting in pairs(require("ui/elements/common_settings_menu_table")) do
-        self.menu_items[id] = common_setting
+    for i, common_setting in ipairs(require("ui/elements/common_settings_menu_table")) do
+        table.insert(self.tab_item_table.setting, common_setting)
     end
     -- insert DjVu render mode submenu just before the last entry (show advanced)
     -- this is a bit of a hack
     if self.ui.document.is_djvu then
-        self.menu_items.djvu_render_mode = self.view:getRenderModeMenuTable()
+        table.insert(
+            self.tab_item_table.setting,
+            #self.tab_item_table.setting,
+            self.view:getRenderModeMenuTable())
     end
 
     if Device:isKobo() and Screensaver:isUsingBookCover() then
@@ -115,7 +112,7 @@ function ReaderMenu:setUpdateItemTable()
         local proportional = function()
             return self.ui.doc_settings:readSetting("proportional_screensaver") or false
         end
-        self.menu_items.screensaver = {
+        table.insert(self.tab_item_table.setting, {
             text = _("Screensaver"),
             sub_item_table = {
                 {
@@ -144,16 +141,16 @@ function ReaderMenu:setUpdateItemTable()
                     end
                 }
             }
-        }
+        })
     end
 
     -- main menu tab
     -- insert common info
-    for id, common_setting in pairs(require("ui/elements/common_info_menu_table")) do
-        self.menu_items[id] = common_setting
+    for i, common_setting in ipairs(require("ui/elements/common_info_menu_table")) do
+        table.insert(self.tab_item_table.main, common_setting)
     end
 
-    self.menu_items.exit = {
+    table.insert(self.tab_item_table.main, {
         text = _("Exit"),
         callback = function()
             self:onTapCloseMenu()
@@ -163,16 +160,12 @@ function ReaderMenu:setUpdateItemTable()
                 FileManager.instance:onClose()
             end
         end,
-    }
+    })
 
-    local order = require("frontend/ui/elements/reader_menu_order")
-
-    local MenuSorter = require("frontend/ui/menusorter")
-    self.tab_item_table = MenuSorter:mergeAndSort("reader", self.menu_items, order)
 end
 
 function ReaderMenu:onShowReaderMenu()
-    if self.tab_item_table == nil then
+    if #self.tab_item_table.setting == 0 then
         self:setUpdateItemTable()
     end
 
@@ -187,7 +180,15 @@ function ReaderMenu:onShowReaderMenu()
         main_menu = TouchMenu:new{
             width = Screen:getWidth(),
             last_index = self.last_tab_index,
-            tab_item_table = self.tab_item_table,
+            tab_item_table = {
+                self.tab_item_table.navi,
+                self.tab_item_table.typeset,
+                self.tab_item_table.setting,
+                self.tab_item_table.plugins,
+                self.tab_item_table.search,
+                self.tab_item_table.filemanager,
+                self.tab_item_table.main,
+            },
             show_parent = menu_container,
         }
     else

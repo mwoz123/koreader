@@ -22,14 +22,13 @@ function PluginLoader:loadPlugins()
             local ok, plugin_module = pcall(dofile, mainfile)
             if not ok or not plugin_module then
                 logger.warn("Error when loading", mainfile, plugin_module)
-            elseif type(plugin_module.disabled) ~= "boolean" or not plugin_module.disabled then
+            end
+            if ok and plugin_module and not plugin_module.disabled then
                 package.path = package_path
                 package.cpath = package_cpath
                 plugin_module.path = path
                 plugin_module.name = plugin_module.name or path:match("/(.-)%.koplugin")
                 table.insert(self.plugins, plugin_module)
-            else
-                logger.info("Plugin ", mainfile, " has been disabled.")
             end
         end
     end

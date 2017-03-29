@@ -203,7 +203,7 @@ function TouchMenuBar:init()
         local icon_sep = LineWidget:new{
             style = k == 1 and "solid" or "none",
             dimen = Geom:new{
-                w = icon_sep_width,
+                w = Screen:scaleBySize(2),
                 h = self.height,
             }
         }
@@ -386,14 +386,16 @@ function TouchMenu:init()
         -- pad with 10 pixel to align with the up arrow in footer
         HorizontalSpan:new{width = 10},
         LineWidget:new{
-            background = Blitbuffer.gray(0.33),
+            style = "dashed",
             dimen = Geom:new{
                 w = self.item_width - 20,
-                h = Screen:scaleByDPI(1),
+                h = 1,
             }
         }
     }
     self.footer_top_margin = VerticalSpan:new{width = Screen:scaleBySize(2)}
+    -- Make sure we always show an up to date battery status when first opening the menu...
+    Device:getPowerDevice():refreshCapacity()
     self.bar:switchToTab(self.last_index or 1)
 end
 
@@ -437,9 +439,8 @@ function TouchMenu:updateItems()
         -- calculate index in item_table
         local i = (self.page - 1) * self.perpage + c
         if i <= #self.item_table then
-            local item = self.item_table[i]
             local item_tmp = TouchMenuItem:new{
-                item = item,
+                item = self.item_table[i],
                 menu = self,
                 dimen = Geom:new{
                     w = self.item_width,
@@ -448,8 +449,8 @@ function TouchMenu:updateItems()
                 show_parent = self.show_parent,
             }
             table.insert(self.item_group, item_tmp)
-            if item.separator and c ~= self.perpage then
-                -- insert split line
+            -- insert split line
+            if c ~= self.perpage then
                 table.insert(self.item_group, self.split_line)
             end
         else
@@ -551,13 +552,9 @@ function TouchMenu:onMenuSelect(item)
     if self.touch_menu_callback then
         self.touch_menu_callback()
     end
-    if item.tap_input or type(item.tap_input_func) == "function" then
+    if item.tap_input then
         self:closeMenu()
-        if item.tap_input then
-            self:onInput(item.tap_input)
-        else
-            self:onInput(item.tap_input_func())
-        end
+        self:onInput(item.tap_input)
     else
         local sub_item_table = item.sub_item_table
         if item.sub_item_table_func then
@@ -595,13 +592,9 @@ function TouchMenu:onMenuHold(item)
     if self.touch_menu_callback then
         self.touch_menu_callback()
     end
-    if item.hold_input or type(item.hold_input_func) == "function" then
+    if item.hold_input then
         self:closeMenu()
-        if item.hold_input then
-            self:onInput(item.hold_input)
-        else
-            self:onInput(item.hold_input_func())
-        end
+        self:onInput(item.hold_input)
     else
         local callback = item.hold_callback
         if item.hold_callback_func then

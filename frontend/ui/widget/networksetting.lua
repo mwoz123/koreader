@@ -255,7 +255,6 @@ function NetworkItem:saveAndConnectToNetwork(password_input)
     else
         if new_passwd ~= self.info.password then
             self.info.password = new_passwd
-            self.info.psk = nil
             NetworkMgr:saveNetwork(self.info)
         end
         self:connect()

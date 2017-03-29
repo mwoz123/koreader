@@ -19,6 +19,8 @@ local KoboPowerD = BasePowerD:new{
 
     batt_capacity_file = batt_state_folder .. "capacity",
     is_charging_file = batt_state_folder .. "status",
+    battCapacity = nil,
+    is_charging = nil,
 }
 
 function KoboPowerD:init()
@@ -75,11 +77,13 @@ function KoboPowerD:setIntensityHW()
 end
 
 function KoboPowerD:getCapacityHW()
-    return self:read_int_file(self.batt_capacity_file)
+    self.battCapacity = self:read_int_file(self.batt_capacity_file)
+    return self.battCapacity
 end
 
 function KoboPowerD:isChargingHW()
-    return self:read_str_file(self.is_charging_file) == "Charging\n"
+    self.is_charging = self:read_str_file(self.is_charging_file) == "Charging\n"
+    return self.is_charging
 end
 
 -- Turn off front light before suspend.
