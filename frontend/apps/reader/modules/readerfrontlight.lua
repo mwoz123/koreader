@@ -52,14 +52,7 @@ function ReaderFrontLight:onAdjust(arg, ges)
             new_intensity = powerd.fl_intensity - delta_int
         end
         if new_intensity ~= nil then
-            -- when new_intensity <=0, toggle light off
-            if new_intensity <= 0 then
-                powerd:toggleFrontlight()
-            end
             powerd:setIntensity(new_intensity)
-            if self.view.footer_visible and self.view.footer.settings.frontlight then
-                self.view.footer:updateFooter()
-            end
         end
     end
     return true
@@ -68,14 +61,8 @@ end
 function ReaderFrontLight:onShowIntensity()
     local powerd = Device:getPowerDevice()
     if powerd.fl_intensity ~= nil then
-        local new_text
-        if powerd.fl_intensity == 0 then
-            new_text = _("Frontlight is off.")
-        else
-            new_text = T(_("Frontlight intensity is set to %1."), powerd.fl_intensity)
-        end
         UIManager:show(Notification:new{
-            text = new_text,
+            text = T(_("Frontlight intensity is set to %1."), powerd.fl_intensity),
             timeout = 1.0,
         })
     end

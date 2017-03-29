@@ -10,6 +10,9 @@ local logger = require("logger")
 local _ = require("gettext")
 
 
+local pan_rate = Screen.eink and 4.0 or 10.0
+
+
 local function copyPageState(page_state)
     return {
         page = page_state.page,
@@ -24,7 +27,6 @@ end
 
 
 local ReaderPaging = InputContainer:new{
-    pan_rate = 30,  -- default 30 ops, will be adjusted in readerui
     current_page = 0,
     number_of_pages = 0,
     last_pan_relative_y = 0,
@@ -131,7 +133,7 @@ function ReaderPaging:setupTouchZones()
         {
             id = "paging_pan",
             ges = "pan",
-            rate = self.pan_rate,
+            rate = pan_rate,
             screen_zone = {
                 ratio_x = 0, ratio_y = 0, ratio_w = 1, ratio_h = 1,
             },
@@ -181,7 +183,7 @@ function ReaderPaging:getLastPercent()
     end
 end
 
-function ReaderPaging:addToMainMenu(menu_items)
+function ReaderPaging:addToMainMenu(tab_item_table)
     -- FIXME: repeated code with page overlap menu for readerrolling
     -- needs to keep only one copy of the logic as for the DRY principle.
     -- The difference between the two menus is only the enabled func.
@@ -201,22 +203,22 @@ function ReaderPaging:addToMainMenu(menu_items)
     for _, menu_entry in ipairs(self.view:genOverlapStyleMenu()) do
         table.insert(page_overlap_menu, menu_entry)
     end
-    menu_items.page_overlap = {
+    table.insert(tab_item_table.typeset, {
         text = _("Page overlap"),
         enabled_func = function()
             return not self.view.page_scroll and self.zoom_mode ~= "page"
                     and not self.zoom_mode:find("height")
         end,
         sub_item_table = page_overlap_menu,
-    }
-    menu_items.read_from_right_to_left = {
+    })
+    table.insert(tab_item_table.setting, {
         text = _("Read from right to left"),
         checked_func = function() return self.inverse_reading_order end,
         callback = function()
             self.inverse_reading_order = not self.inverse_reading_order
             self:setupTapTouchZones()
         end,
-    }
+    })
 end
 
 --[[
@@ -365,8 +367,6 @@ function ReaderPaging:onSwipe(_, ges)
             self:onPagingRel(-1)
         end
     else
-        -- update footer (time & battery)
-        self.view.footer:updateFooter()
         -- trigger full refresh
         UIManager:setDirty(nil, "full")
     end
@@ -849,9 +849,6 @@ end
 -- wrapper for bounds checking
 function ReaderPaging:_gotoPage(number, orig_mode)
     if number == self.current_page or not number then
-        -- update footer even if we stay on the same page (like when
-        -- viewing the bottom part of a page from a top part view)
-        self.view.footer:updateFooter()
         return true
     end
     if number > self.number_of_pages or number < 1 then

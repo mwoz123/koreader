@@ -48,8 +48,8 @@ function ReaderWikipedia:lookupInput()
     UIManager:show(self.input_dialog)
 end
 
-function ReaderWikipedia:addToMainMenu(menu_items)
-    menu_items.wikipedia_lookup =  {
+function ReaderWikipedia:addToMainMenu(tab_item_table)
+    table.insert(tab_item_table.search, {
         text = _("Wikipedia lookup"),
         callback = function()
             if NetworkMgr:isOnline() then
@@ -58,7 +58,7 @@ function ReaderWikipedia:addToMainMenu(menu_items)
                 NetworkMgr:promptWifiOn()
             end
         end
-    }
+    })
 end
 
 function ReaderWikipedia:initLanguages(word)

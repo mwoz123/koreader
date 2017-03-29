@@ -85,8 +85,8 @@ function KOSync:onReaderReady()
     self.view.document:fastDigest()
 end
 
-function KOSync:addToMainMenu(menu_items)
-    menu_items.progress_sync = {
+function KOSync:addToMainMenu(tab_item_table)
+    table.insert(tab_item_table.plugins, {
         text = _("Progress sync"),
         sub_item_table = {
             {
@@ -205,19 +205,17 @@ function KOSync:addToMainMenu(menu_items)
             },
             {
                 text = _("Custom sync server"),
-                tap_input_func = function()
-                    return {
-                        title = _("Custom progress sync server address"),
-                        input = self.kosync_custom_server or "https://",
-                        type = "text",
-                        callback = function(input)
-                            self:setCustomServer(input)
-                        end,
-                    }
-                end,
+                tap_input = {
+                    title = _("Custom progress sync server address"),
+                    input = self.kosync_custom_server or "https://",
+                    type = "text",
+                    callback = function(input)
+                        self:setCustomServer(input)
+                    end,
+                },
             },
         }
-    }
+    })
 end
 
 function KOSync:setCustomServer(server)

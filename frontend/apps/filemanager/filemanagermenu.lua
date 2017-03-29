@@ -1,31 +1,26 @@
 local CenterContainer = require("ui/widget/container/centercontainer")
-local CloudStorage = require("apps/cloudstorage/cloudstorage")
-local ConfirmBox = require("ui/widget/confirmbox")
-local Device = require("device")
-local FileSearcher = require("apps/filemanager/filemanagerfilesearcher")
-local Geom = require("ui/geometry")
-local GestureRange = require("ui/gesturerange")
 local InputContainer = require("ui/widget/container/inputcontainer")
+local ConfirmBox = require("ui/widget/confirmbox")
+local UIManager = require("ui/uimanager")
+local GestureRange = require("ui/gesturerange")
 local InputDialog = require("ui/widget/inputdialog")
+local Geom = require("ui/geometry")
+local Device = require("device")
 local Screensaver = require("ui/screensaver")
+local Screen = Device.screen
+local _ = require("gettext")
+local FileSearcher = require("apps/filemanager/filemanagerfilesearcher")
 local Search = require("apps/filemanager/filemanagersearch")
 local SetDefaults = require("apps/filemanager/filemanagersetdefaults")
-local UIManager = require("ui/uimanager")
-local _ = require("gettext")
-local Screen = Device.screen
+local CloudStorage = require("apps/cloudstorage/cloudstorage")
 
 local FileManagerMenu = InputContainer:extend{
     tab_item_table = nil,
-    menu_items = {},
     registered_widgets = nil,
 }
 
 function FileManagerMenu:init()
-    self.menu_items = {
-        ["KOMenu:menu_buttons"] = {
-            -- top menu
-        },
-        -- items in top menu
+    self.tab_item_table = {
         setting = {
             icon = "resources/icons/appbar.settings.png",
         },
@@ -39,7 +34,9 @@ function FileManagerMenu:init()
             icon = "resources/icons/menu-icon.png",
         },
     }
-
+    -- For backward compatibility, plugins look for plugins tab, which should be tools tab in file
+    -- manager.
+    self.tab_item_table.plugins = self.tab_item_table.tools
     self.registered_widgets = {}
 
     if Device:hasKeys() then
@@ -67,22 +64,22 @@ end
 
 function FileManagerMenu:setUpdateItemTable()
     for _, widget in pairs(self.registered_widgets) do
-        widget:addToMainMenu(self.menu_items)
+        widget:addToMainMenu(self.tab_item_table)
     end
 
     -- setting tab
-    self.menu_items.show_hidden_files = {
+    table.insert(self.tab_item_table.setting, {
         text = _("Show hidden files"),
         checked_func = function() return self.ui.file_chooser.show_hidden end,
         callback = function() self.ui:toggleHiddenFiles() end
-    }
-    self.menu_items.sort_by = self.ui:getSortingMenuTable()
-    self.menu_items.reverse_sorting = {
+    })
+    table.insert(self.tab_item_table.setting, self.ui:getSortingMenuTable())
+    table.insert(self.tab_item_table.setting, {
         text = _("Reverse sorting"),
         checked_func = function() return self.ui.file_chooser.reverse_collate end,
         callback = function() self.ui:toggleReverseCollate() end
-    }
-    self.menu_items.start_with_last_opened_file = {
+    })
+    table.insert(self.tab_item_table.setting, {
         text = _("Start with last opened file"),
         checked_func = function() return
             G_reader_settings:readSetting("open_last")
@@ -95,9 +92,9 @@ function FileManagerMenu:setUpdateItemTable()
             G_reader_settings:saveSetting("open_last", not open_last)
             G_reader_settings:flush()
         end
-    }
+    })
     if Device.isKobo() then
-        self.menu_items.screensaver = {
+        table.insert(self.tab_item_table.setting, {
             text = _("Screensaver"),
             sub_item_table = {
                 {
@@ -151,15 +148,15 @@ function FileManagerMenu:setUpdateItemTable()
                     end,
                 },
             }
-        }
+        })
     end
     -- insert common settings
-    for id, common_setting in pairs(require("ui/elements/common_settings_menu_table")) do
-        self.menu_items[id] = common_setting
+    for i, common_setting in ipairs(require("ui/elements/common_settings_menu_table")) do
+        table.insert(self.tab_item_table.setting, common_setting)
     end
 
     -- tools tab
-    self.menu_items.advanced_settings = {
+    table.insert(self.tab_item_table.tools, {
         text = _("Advanced settings"),
         callback = function()
             SetDefaults:ConfirmEdit()
@@ -167,8 +164,8 @@ function FileManagerMenu:setUpdateItemTable()
         hold_callback = function()
             SetDefaults:ConfirmSave()
         end,
-    }
-    self.menu_items.opds_catalog = {
+    })
+    table.insert(self.tab_item_table.tools, {
         text = _("OPDS catalog"),
         callback = function()
             local OPDSCatalog = require("apps/opdscatalog/opdscatalog")
@@ -179,8 +176,8 @@ function FileManagerMenu:setUpdateItemTable()
             end
             OPDSCatalog:showCatalog()
         end,
-    }
-    self.menu_items.developer_options = {
+    })
+    table.insert(self.tab_item_table.tools, {
         text = _("Developer options"),
         sub_item_table = {
             {
@@ -209,8 +206,8 @@ function FileManagerMenu:setUpdateItemTable()
                 end,
             },
         }
-    }
-    self.menu_items.cloud_storage = {
+    })
+    table.insert(self.tab_item_table.tools, {
         text = _("Cloud storage"),
         callback = function()
             local cloud_storage = CloudStorage:new{}
@@ -221,29 +218,27 @@ function FileManagerMenu:setUpdateItemTable()
                 UIManager:close(cloud_storage)
             end
         end,
-    }
+    })
 
     -- search tab
-    self.menu_items.find_book_in_calibre_catalog = {
+    table.insert(self.tab_item_table.search, {
         text = _("Find a book in calibre catalog"),
         callback = function()
             Search:getCalibre()
             Search:ShowSearch()
         end
-    }
-    self.menu_items.find_file = {
+    })
+    table.insert(self.tab_item_table.search, {
         text = _("Find a file"),
         callback = function()
             FileSearcher:init(self.ui.file_chooser.path)
         end
-    }
+    })
 
     -- main menu tab
-    self.menu_items.open_last_document = {
+    -- insert common info
+    table.insert(self.tab_item_table.main, {
         text = _("Open last document"),
-        enabled_func = function()
-            return G_reader_settings:readSetting("lastfile") ~= nil
-        end,
         callback = function()
             local last_file = G_reader_settings:readSetting("lastfile")
             if not last_file or lfs.attributes(last_file, "mode") ~= "file" then
@@ -257,12 +252,11 @@ function FileManagerMenu:setUpdateItemTable()
             ReaderUI:showReader(last_file)
             self:onCloseFileManagerMenu()
         end
-    }
-    -- insert common info
-    for id, common_setting in pairs(require("ui/elements/common_info_menu_table")) do
-        self.menu_items[id] = common_setting
+    })
+    for i, common_setting in ipairs(require("ui/elements/common_info_menu_table")) do
+        table.insert(self.tab_item_table.main, common_setting)
     end
-    self.menu_items.exit = {
+    table.insert(self.tab_item_table.main, {
         text = _("Exit"),
         callback = function()
             if SetDefaults.settings_changed then
@@ -278,17 +272,12 @@ function FileManagerMenu:setUpdateItemTable()
                 self.ui:onClose()
             end
         end,
-    }
-
-    local order = require("ui/elements/filemanager_menu_order")
-
-    local MenuSorter = require("frontend/ui/menusorter")
-    self.tab_item_table = MenuSorter:mergeAndSort("filemanager", self.menu_items, order)
+    })
 end
 
 function FileManagerMenu:onShowMenu()
     local tab_index = G_reader_settings:readSetting("filemanagermenu_tab_index") or 1
-    if self.tab_item_table == nil then
+    if #self.tab_item_table.setting == 0 then
         self:setUpdateItemTable()
     end
 
@@ -303,7 +292,12 @@ function FileManagerMenu:onShowMenu()
         main_menu = TouchMenu:new{
             width = Screen:getWidth(),
             last_index = tab_index,
-            tab_item_table = self.tab_item_table,
+            tab_item_table = {
+                self.tab_item_table.setting,
+                self.tab_item_table.tools,
+                self.tab_item_table.search,
+                self.tab_item_table.main,
+            },
             show_parent = menu_container,
         }
     else

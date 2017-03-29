@@ -1,13 +1,14 @@
 local logger = require("logger")
 
 local BasePowerD = {
-    fl_min = 0,                       -- min frontlight intensity
-    fl_max = 10,                      -- max frontlight intensity
-    fl_intensity = nil,               -- frontlight intensity
-    battCapacity = 0,                 -- battery capacity
-    device = nil,                     -- device object
+    fl_min = 0,          -- min frontlight intensity
+    fl_max = 10,         -- max frontlight intensity
+    fl_intensity = nil,  -- frontlight intensity
+    battCapacity = nil,  -- battery capacity
+    device = nil,        -- device object
 
-    last_capacity_pull_time = 0,      -- timestamp of last pull
+    capacity_pulled_count = 0,
+    capacity_cached_count = 10,
 }
 
 function BasePowerD:new(o)
@@ -21,8 +22,8 @@ end
 function BasePowerD:init() end
 function BasePowerD:toggleFrontlight() end
 function BasePowerD:setIntensityHW() end
-function BasePowerD:getCapacityHW() return 0 end
-function BasePowerD:isChargingHW() return false end
+function BasePowerD:getCapacityHW() return "0" end
+function BasePowerD:isChargingHW() end
 -- Anything needs to be done before do a real hardware suspend. Such as turn off
 -- front light.
 function BasePowerD:beforeSuspend() end
@@ -65,11 +66,19 @@ function BasePowerD:setIntensity(intensity)
 end
 
 function BasePowerD:getCapacity()
-    if os.time() - self.last_capacity_pull_time >= 60 then
-        self.battCapacity = self:getCapacityHW()
-        self.last_capacity_pull_time = os.time()
+    if self.capacity_pulled_count == self.capacity_cached_count then
+        self.capacity_pulled_count = 0
+        return self:getCapacityHW()
+    else
+        self.capacity_pulled_count = self.capacity_pulled_count + 1
+        return self.battCapacity or self:getCapacityHW()
     end
-    return self.battCapacity
+end
+
+function BasePowerD:refreshCapacity()
+    -- We want our next getCapacity call to actually pull up to date info
+    -- instead of a cached value ;)
+    self.capacity_pulled_count = self.capacity_cached_count
 end
 
 function BasePowerD:isCharging()

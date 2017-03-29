@@ -27,14 +27,11 @@ local MODE = {
     book_time_to_read = 6,
     chapter_time_to_read = 7,
     frontlight = 8,
-    mem_usage = 9,
 }
 
-local MODE_NB = 0
 local MODE_INDEX = {}
 for k,v in pairs(MODE) do
     MODE_INDEX[v] = k
-    MODE_NB = MODE_NB + 1
 end
 
 -- functions that generates footer text for each mode
@@ -88,18 +85,6 @@ local footerTextGeneratorMap = {
         return footer:getDataFromStatistics(
             "TC: ", (left and left or footer.pages - footer.pageno))
     end,
-    mem_usage = function(footer)
-        local statm = io.open("/proc/self/statm", "r")
-        if statm then
-            local infos = statm:read("*all")
-            statm:close()
-            local rss = infos:match("^%S+ (%S+) ")
-            -- we got the nb of 4Kb-pages used, that we convert to Mb
-            rss = math.floor(tonumber(rss) * 4096 / 1024 / 1024)
-            return string.format("M:%d", rss)
-        end
-        return ""
-    end,
 }
 
 local ReaderFooter = WidgetContainer:extend{
@@ -135,7 +120,6 @@ function ReaderFooter:init()
         book_time_to_read = true,
         chapter_time_to_read = true,
         frontlight = false,
-        mem_usage = false,
     }
 
     if self.settings.disabled then
@@ -320,15 +304,14 @@ local option_titles = {
     book_time_to_read = _("Book time to read"),
     chapter_time_to_read = _("Chapter time to read"),
     frontlight = _("Frontlight level"),
-    mem_usage = _("KOReader memory usage"),
 }
 
-function ReaderFooter:addToMainMenu(menu_items)
+function ReaderFooter:addToMainMenu(tab_item_table)
     local sub_items = {}
-    menu_items.status_bar = {
+    table.insert(tab_item_table.setting, {
         text = _("Status bar"),
         sub_item_table = sub_items,
-    }
+    })
 
     -- menu item to fake footer tapping when touch area is disabled
     if Geom:new{
@@ -417,7 +400,6 @@ function ReaderFooter:addToMainMenu(menu_items)
     table.insert(sub_items, getMinibarOption("book_time_to_read"))
     table.insert(sub_items, getMinibarOption("chapter_time_to_read"))
     table.insert(sub_items, getMinibarOption("frontlight"))
-    table.insert(sub_items, getMinibarOption("mem_usage"))
 end
 
 -- this method will be updated at runtime based on user setting
@@ -548,7 +530,6 @@ function ReaderFooter:applyFooterMode(mode)
     -- 6 for from statistics book time to read
     -- 7 for from statistics chapter time to read
     -- 8 for front light level
-    -- 9 for memory usage
     if mode ~= nil then self.mode = mode end
     self.view.footer_visible = (self.mode ~= MODE.off)
     if not self.view.footer_visible or self.settings.all_at_once then return end
@@ -587,14 +568,14 @@ function ReaderFooter:onTapFooter(arg, ges)
                 self.mode = MODE.page_progress
             end
         else
-            self.mode = (self.mode + 1) % MODE_NB
+            self.mode = (self.mode + 1) % 9
             for i, m in ipairs(MODE_INDEX) do
                 if self.mode == MODE.off then break end
                 if self.mode == i then
                     if self.settings[m] then
                         break
                     else
-                        self.mode = (self.mode + 1) % MODE_NB
+                        self.mode = (self.mode + 1) % 9
                     end
                 end
             end
@@ -621,10 +602,6 @@ function ReaderFooter:onSetStatusLine(status_line)
     end
     self.ui.document:setStatusLineProp(status_line)
     self.ui:handleEvent(Event:new("UpdatePos"))
-end
-
-function ReaderFooter:onResume()
-    self:updateFooter()
 end
 
 return ReaderFooter

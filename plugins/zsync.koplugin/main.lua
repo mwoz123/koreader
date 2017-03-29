@@ -24,8 +24,8 @@ function ZSync:init()
     self.client_config = self.path.."/client.cfg"
 end
 
-function ZSync:addToMainMenu(menu_items)
-    menu_items.zsync = {
+function ZSync:addToMainMenu(tab_item_table)
+    table.insert(tab_item_table.plugins, {
         text = _("ZSync"),
         sub_item_table = {
             {
@@ -63,7 +63,7 @@ function ZSync:addToMainMenu(menu_items)
                 end
             }
         }
-    }
+    })
 end
 
 function ZSync:initServerZyreMQ()

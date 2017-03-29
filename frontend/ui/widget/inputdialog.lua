@@ -11,7 +11,6 @@ Example:
         input = "default value",
         input_hint = "hint text",
         input_type = "string",
-        description = "Some more description",
         -- text_type = "password",
         buttons = {
             {
@@ -39,39 +38,36 @@ Example:
 
 ]]
 
-local Blitbuffer = require("ffi/blitbuffer")
-local ButtonTable = require("ui/widget/buttontable")
-local CenterContainer = require("ui/widget/container/centercontainer")
-local Font = require("ui/font")
-local FrameContainer = require("ui/widget/container/framecontainer")
-local Geom = require("ui/geometry")
 local InputContainer = require("ui/widget/container/inputcontainer")
-local InputText = require("ui/widget/inputtext")
-local LineWidget = require("ui/widget/linewidget")
-local RenderText = require("ui/rendertext")
-local TextBoxWidget = require("ui/widget/textboxwidget")
-local TextWidget = require("ui/widget/textwidget")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local CenterContainer = require("ui/widget/container/centercontainer")
 local VerticalGroup = require("ui/widget/verticalgroup")
-local WidgetContainer = require("ui/widget/container/widgetcontainer")
+local ButtonTable = require("ui/widget/buttontable")
+local TextWidget = require("ui/widget/textwidget")
+local LineWidget = require("ui/widget/linewidget")
+local InputText = require("ui/widget/inputtext")
+local RenderText = require("ui/rendertext")
 local UIManager = require("ui/uimanager")
 local Screen = require("device").screen
+local Geom = require("ui/geometry")
+local Font = require("ui/font")
+local Blitbuffer = require("ffi/blitbuffer")
 
 local InputDialog = InputContainer:new{
     title = "",
     input = "",
     input_hint = "",
-    description = nil,
     buttons = nil,
     input_type = nil,
     enter_callback = nil,
 
     width = nil,
+    height = nil,
 
     text_width = nil,
     text_height = nil,
 
     title_face = Font:getFace("tfont", 22),
-    description_face = Font:getFace("cfont", 20),
     input_face = Font:getFace("cfont", 20),
 
     title_padding = Screen:scaleBySize(5),
@@ -103,21 +99,6 @@ function InputDialog:init()
         }
     }
 
-    if self.description then
-        self.description = FrameContainer:new{
-            padding = self.title_padding,
-            margin = self.title_margin,
-            bordersize = 0,
-            TextBoxWidget:new{
-                text = self.description,
-                face = self.description_face,
-                width = self.width,
-            }
-        }
-    else
-        self.description = WidgetContainer:new()
-    end
-
     self._input_widget = InputText:new{
         text = self.input,
         hint = self.input_hint,
@@ -139,7 +120,6 @@ function InputDialog:init()
         scroll = false,
         parent = self,
     }
-
     self.button_table = ButtonTable:new{
         width = self.width,
         button_font_face = "cfont",
@@ -148,7 +128,6 @@ function InputDialog:init()
         zero_sep = true,
         show_parent = self,
     }
-
     self.title_bar = LineWidget:new{
         dimen = Geom:new{
             w = self.button_table:getSize().w + self.button_padding,
@@ -166,7 +145,6 @@ function InputDialog:init()
             align = "left",
             self.title,
             self.title_bar,
-            self.description,
             -- input
             CenterContainer:new{
                 dimen = Geom:new{

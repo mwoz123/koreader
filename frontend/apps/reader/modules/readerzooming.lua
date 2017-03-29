@@ -308,9 +308,9 @@ function ReaderZooming:setZoomMode(mode)
     self.ui:handleEvent(Event:new("InitScrollPageStates"))
 end
 
-function ReaderZooming:addToMainMenu(menu_items)
+function ReaderZooming:addToMainMenu(tab_item_table)
     if self.ui.document.info.has_pages then
-        menu_items.switch_zoom_mode = {
+        table.insert(tab_item_table.typeset, {
             text = _("Switch zoom mode"),
             enabled_func = function()
                 return self.ui.document.configurable.text_wrap ~= 1
@@ -353,7 +353,7 @@ function ReaderZooming:addToMainMenu(menu_items)
                     hold_callback = function() self:makeDefault("page") end,
                 },
             }
-        }
+        })
     end
 end
 

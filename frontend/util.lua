@@ -256,15 +256,11 @@ function util.getFilesystemType(path)
 end
 
 function util.replaceInvalidChars(str)
-    if str then
-        return str:gsub('[\\,%/,:,%*,%?,%",%<,%>,%|]','_'):gsub("([\224-\244]+)",'_')
-    end
+    return str:gsub('[\\,%/,:,%*,%?,%",%<,%>,%|]','_')
 end
 
 function util.replaceSlashChar(str)
-    if str then
-        return str:gsub('%/','_'):gsub("([\224-\244]+)",'_')
-    end
+    return str:gsub('%/','_')
 end
 
 -- Split a file into its path and name

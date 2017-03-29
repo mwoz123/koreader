@@ -9,15 +9,15 @@ local common_settings = {}
 
 if Device:hasFrontlight() then
     local ReaderFrontLight = require("apps/reader/modules/readerfrontlight")
-    common_settings.frontlight = {
+    table.insert(common_settings, {
         text = _("Frontlight"),
         callback = function()
             ReaderFrontLight:onShowFlDialog()
         end,
-    }
+    })
 end
 
-common_settings.night_mode = {
+table.insert(common_settings, {
     text = _("Night mode"),
     checked_func = function() return G_reader_settings:readSetting("night_mode") end,
     callback = function()
@@ -26,12 +26,12 @@ common_settings.night_mode = {
         UIManager:setDirty(nil, "full")
         G_reader_settings:saveSetting("night_mode", not night_mode)
     end
-}
-common_settings.network = {
+})
+table.insert(common_settings, {
     text = _("Network"),
     sub_item_table = NetworkMgr:getMenuTable()
-}
-common_settings.screen = {
+})
+table.insert(common_settings, {
     text = _("Screen"),
     sub_item_table = {
         require("ui/elements/screen_dpi_menu_table"),
@@ -39,8 +39,8 @@ common_settings.screen = {
         require("ui/elements/screen_disable_double_tap_table"),
         require("ui/elements/refresh_menu_table"),
     },
-}
-common_settings.save_document = {
+})
+table.insert(common_settings, {
     text = _("Save document"),
     sub_item_table = {
         {
@@ -74,7 +74,15 @@ common_settings.save_document = {
             end,
         },
     },
-}
-common_settings.language = Language:getLangMenuTable()
+})
+table.insert(common_settings, Language:getLangMenuTable())
+table.insert(common_settings, {
+    text = _("Show advanced options"),
+    checked_func = function() return G_reader_settings:readSetting("show_advanced") end,
+    callback = function()
+        local show_advanced = G_reader_settings:readSetting("show_advanced") or false
+        G_reader_settings:saveSetting("show_advanced", not show_advanced)
+    end
+})
 
 return common_settings

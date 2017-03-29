@@ -434,14 +434,14 @@ function ReaderToc:collapseToc(index)
     self.toc_menu:switchItemTable(nil, self.collapsed_toc, -1)
 end
 
-function ReaderToc:addToMainMenu(menu_items)
+function ReaderToc:addToMainMenu(tab_item_table)
     -- insert table to main reader menu
-    menu_items.table_of_contents = {
+    table.insert(tab_item_table.navi, 1, {
         text = self.toc_menu_title,
         callback = function()
             self:onShowToc()
         end,
-    }
+    })
 end
 
 return ReaderToc

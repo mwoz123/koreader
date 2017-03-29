@@ -7,6 +7,7 @@ int IsCharging();
 ]]
 
 local PocketBookPowerD = BasePowerD:new{
+    battCapacity = nil,
     is_charging = nil,
     batt_capacity_file = "/sys/devices/platform/sun5i-i2c.0/i2c-0/0-0034/axp20-supplyer.28/power_supply/battery/capacity",
     is_charging_file = "/sys/devices/platform/sun5i-i2c.0/i2c-0/0-0034/axp20-supplyer.28/power_supply/battery/status",
@@ -16,7 +17,8 @@ function PocketBookPowerD:init()
 end
 
 function PocketBookPowerD:getCapacityHW()
-    return self:read_int_file(self.batt_capacity_file)
+    self.battCapacity = self:read_int_file(self.batt_capacity_file)
+    return self.battCapacity
 end
 
 function PocketBookPowerD:isChargingHW()
