@@ -1,16 +1,16 @@
-local InputContainer = require("ui/widget/container/inputcontainer")
 local CenterContainer = require("ui/widget/container/centercontainer")
-local ButtonDialog = require("ui/widget/buttondialog")
-local Menu = require("ui/widget/menu")
 local Device = require("device")
-local GestureRange = require("ui/gesturerange")
-local Geom = require("ui/geometry")
-local Screen = require("device").screen
-local UIManager = require("ui/uimanager")
 local Event = require("ui/event")
 local Font = require("ui/font")
+local Geom = require("ui/geometry")
+local GestureRange = require("ui/gesturerange")
+local InputContainer = require("ui/widget/container/inputcontainer")
+local Menu = require("ui/widget/menu")
+local TextViewer = require("ui/widget/textviewer")
+local UIManager = require("ui/uimanager")
 local logger = require("logger")
 local _ = require("gettext")
+local Screen = require("device").screen
 
 local ReaderBookmark = InputContainer:new{
     bm_menu_title = _("Bookmarks"),
@@ -181,7 +181,7 @@ function ReaderBookmark:onShowBookmark()
         is_popout = false,
         width = Screen:getWidth(),
         height = Screen:getHeight(),
-        cface = Font:getFace("cfont", 20),
+        cface = Font:getFace("x_smallinfofont"),
         on_close_ges = {
             GestureRange:new{
                 ges = "two_finger_swipe",
@@ -207,22 +207,31 @@ function ReaderBookmark:onShowBookmark()
     end
 
     function bm_menu:onMenuHold(item)
-        self.remove_bookmark_dialog = ButtonDialog:new{
-            buttons = {
+        self.textviewer = TextViewer:new{
+            title = _("Bookmark details"),
+            text = item.notes,
+            width = self.textviewer_width,
+            height = self.textviewer_height,
+            buttons_table = {
                 {
+                    {
+                        text = _("Close"),
+                        callback = function()
+                            UIManager:close(self.textviewer)
+                        end,
+                    },
                     {
                         text = _("Remove this bookmark"),
                         callback = function()
-                            bookmark:removeBookmark(item)
+                            bookmark:removeHightligit(item)
                             bm_menu:switchItemTable(nil, bookmark.bookmarks, -1)
-                            UIManager:close(self.remove_bookmark_dialog)
+                            UIManager:close(self.textviewer)
                         end,
                     },
                 },
-            },
+            }
         }
-
-        UIManager:show(self.remove_bookmark_dialog)
+        UIManager:show(self.textviewer)
         return true
     end
 
@@ -313,6 +322,14 @@ function ReaderBookmark:isBookmarkAdded(item)
         end
     end
     return false
+end
+
+function ReaderBookmark:removeHightligit(item)
+    if item.pos0 then
+        self.ui:handleEvent(Event:new("Unhighlight", item))
+    else
+        self:removeBookmark(item)
+    end
 end
 
 -- binary search to remove bookmark

@@ -6,8 +6,8 @@ local Screensaver = require("ui/screensaver")
 local UIManager = require("ui/uimanager")
 local logger = require("logger")
 local dbg = require("dbg")
-local _ = require("gettext")
 local Screen = Device.screen
+local _ = require("gettext")
 
 local ReaderMenu = InputContainer:new{
     tab_item_table = nil,
@@ -42,17 +42,7 @@ function ReaderMenu:init()
             callback = function()
                 self:onTapCloseMenu()
                 self.ui:onClose()
-                local FileManager = require("apps/filemanager/filemanager")
-                local lastdir = nil
-                local last_file = G_reader_settings:readSetting("lastfile")
-                if last_file then
-                    lastdir = last_file:match("(.*)/")
-                end
-                if FileManager.instance then
-                    FileManager.instance:reinit(lastdir)
-                else
-                    FileManager:showFiles(lastdir)
-                end
+                self.ui:showFileManager()
             end,
         },
         main = {
@@ -72,6 +62,10 @@ function ReaderMenu:init()
             self.key_events.ShowReaderMenu = { { "Menu" }, doc = "show menu", }
         end
     end
+    self.activation_menu = G_reader_settings:readSetting("activate_menu")
+    if self.activation_menu == nil then
+        self.activation_menu = "swipe_tap"
+    end
 end
 
 function ReaderMenu:onReaderReady()
@@ -82,6 +76,15 @@ function ReaderMenu:onReaderReady()
 
     self.ui:registerTouchZones({
         {
+            id = "readermenu_tap",
+            ges = "tap",
+            screen_zone = {
+                ratio_x = DTAP_ZONE_MENU.x, ratio_y = DTAP_ZONE_MENU.y,
+                ratio_w = DTAP_ZONE_MENU.w, ratio_h = DTAP_ZONE_MENU.h,
+            },
+            handler = function(ges) return self:onTapShowMenu(ges) end,
+        },
+        {
             id = "readermenu_swipe",
             ges = "swipe",
             screen_zone = {
@@ -89,6 +92,16 @@ function ReaderMenu:onReaderReady()
                 ratio_w = DTAP_ZONE_MENU.w, ratio_h = DTAP_ZONE_MENU.h,
             },
             overrides = { "rolling_swipe", "paging_swipe", },
+            handler = function(ges) return self:onSwipeShowMenu(ges) end,
+        },
+        {
+            id = "readermenu_pan",
+            ges = "pan",
+            screen_zone = {
+                ratio_x = DTAP_ZONE_MENU.x, ratio_y = DTAP_ZONE_MENU.y,
+                ratio_w = DTAP_ZONE_MENU.w, ratio_h = DTAP_ZONE_MENU.h,
+            },
+            overrides = { "rolling_pan", "paging_pan", },
             handler = function(ges) return self:onSwipeShowMenu(ges) end,
         },
     })
@@ -174,12 +187,14 @@ function ReaderMenu:setUpdateItemTable()
     self.menu_items.exit = {
         text = _("Exit"),
         callback = function()
-            self:onTapCloseMenu()
-            UIManager:scheduleIn(0.1, function() self.ui:onClose() end)
-            local FileManager = require("apps/filemanager/filemanager")
-            if FileManager.instance then
-                FileManager.instance:onClose()
-            end
+            self:exitOrRestart()
+        end,
+    }
+
+    self.menu_items.restart_koreader = {
+        text = _("Restart KOReader"),
+        callback = function()
+            self:exitOrRestart(function() UIManager:restartKOReader() end)
         end,
     }
 
@@ -196,6 +211,20 @@ dbg:guard(ReaderMenu, 'setUpdateItemTable',
             widget:addToMainMenu(mock_menu_items)
         end
     end)
+
+function ReaderMenu:exitOrRestart(callback)
+    self:onTapCloseMenu()
+    UIManager:nextTick(function()
+        self.ui:onClose()
+        if callback ~= nil then
+            callback()
+        end
+    end)
+    local FileManager = require("apps/filemanager/filemanager")
+    if FileManager.instance then
+        FileManager.instance:onClose()
+    end
+end
 
 function ReaderMenu:onShowReaderMenu()
     if self.tab_item_table == nil then
@@ -250,7 +279,15 @@ function ReaderMenu:onCloseReaderMenu()
 end
 
 function ReaderMenu:onSwipeShowMenu(ges)
-    if ges.direction == "south" then
+    if self.activation_menu ~= "tap" and ges.direction == "south" then
+        self.ui:handleEvent(Event:new("ShowConfigMenu"))
+        self.ui:handleEvent(Event:new("ShowReaderMenu"))
+        return true
+    end
+end
+
+function ReaderMenu:onTapShowMenu()
+    if self.activation_menu ~= "swipe" then
         self.ui:handleEvent(Event:new("ShowConfigMenu"))
         self.ui:handleEvent(Event:new("ShowReaderMenu"))
         return true

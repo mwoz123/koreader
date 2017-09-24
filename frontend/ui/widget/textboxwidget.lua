@@ -138,6 +138,9 @@ function TextBoxWidget:_splitCharWidthList()
                 -- either a very long english word ocuppying more than one line,
                 -- or the excessive char is itself splittable:
                 -- we let that excessive char for next line
+                if adjusted_idx == offset then -- let the fact a long word was splitted be known
+                    self.has_split_inside_word = true
+                end
                 cur_line_text = table.concat(self.charlist, "", offset, idx - 1)
                 cur_line_width = cur_line_width - self.char_width_list[idx].width
             elseif c == " " then
@@ -299,6 +302,8 @@ function TextBoxWidget:moveCursor(x, y)
         local w_prev = w - self.char_width_list[offset].width - self.char_width_list[offset].pad
         if x - w_prev < w - x then -- the previous one is more closer
             w = w_prev
+        else
+            offset = offset + 1
         end
     end
     self:free()

@@ -59,4 +59,32 @@ function Device:init()
     Generic.init(self)
 end
 
+function Device:setTime(hour, min)
+    if hour == nil or min == nil then return true end
+    if os.execute(string.format("date -s '%d:%d'", hour, min)) == 0 then
+        os.execute('hwclock -u -w')
+        return true
+    else
+        return false
+    end
+end
+
+function Device:simulateSuspend()
+    local InfoMessage = require("ui/widget/infomessage")
+    local UIManager = require("ui/uimanager")
+    local _ = require("gettext")
+    UIManager:show(InfoMessage:new{
+        text = _("Suspend")
+    })
+end
+
+function Device:simulateResume()
+    local InfoMessage = require("ui/widget/infomessage")
+    local UIManager = require("ui/uimanager")
+    local _ = require("gettext")
+    UIManager:show(InfoMessage:new{
+        text = _("Resume")
+    })
+end
+
 return Device

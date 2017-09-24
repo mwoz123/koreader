@@ -23,10 +23,13 @@ common_info.version = {
 common_info.help = {
     text = _("Help"),
 }
+common_info.more_plugins = {
+    text = _("More plugins"),
+}
 common_info.quickstart_guide = {
     text = _("Quickstart guide"),
     callback = function()
-        local QuickStart = require("frontend/ui/quickstart")
+        local QuickStart = require("ui/quickstart")
         local ReaderUI = require("apps/reader/readerui")
         ReaderUI:showReader(QuickStart:getQuickStart())
     end
@@ -49,5 +52,19 @@ common_info.report_bug = {
         })
     end
 }
+if Device:isKobo() then
+    common_info.reboot = {
+        text = _("Reboot the device"),
+        callback = function()
+            UIManager:nextTick(UIManager.reboot_action)
+        end
+    }
+    common_info.poweroff = {
+        text = _("Power off"),
+        callback = function()
+            UIManager:nextTick(UIManager.poweroff_action)
+        end
+    }
+end
 
 return common_info

@@ -131,7 +131,7 @@ function KOSync:addToMainMenu(menu_items)
                             return self.kosync_whisper_forward == SYNC_STRATEGY.WHISPER
                         end,
                         callback = function()
-                            self.kosync_whisper_forward = SYNC_STRATEGY.WHISPER
+                            self:setWhisperForward(SYNC_STRATEGY.WHISPER)
                         end,
                     },
                     {
@@ -140,7 +140,7 @@ function KOSync:addToMainMenu(menu_items)
                             return self.kosync_whisper_forward == SYNC_STRATEGY.PROMPT
                         end,
                         callback = function()
-                            self.kosync_whisper_forward = SYNC_STRATEGY.PROMPT
+                            self:setWhisperForward(SYNC_STRATEGY.PROMPT)
                         end,
                     },
                     {
@@ -149,7 +149,7 @@ function KOSync:addToMainMenu(menu_items)
                             return self.kosync_whisper_forward == SYNC_STRATEGY.DISABLE
                         end,
                         callback = function()
-                            self.kosync_whisper_forward = SYNC_STRATEGY.DISABLE
+                            self:setWhisperForward(SYNC_STRATEGY.DISABLE)
                         end,
                     },
                     {
@@ -162,7 +162,7 @@ function KOSync:addToMainMenu(menu_items)
                             return self.kosync_whisper_backward == SYNC_STRATEGY.WHISPER
                         end,
                         callback = function()
-                            self.kosync_whisper_backward = SYNC_STRATEGY.WHISPER
+                            self:setWhisperBackward(SYNC_STRATEGY.WHISPER)
                         end,
                     },
                     {
@@ -171,7 +171,7 @@ function KOSync:addToMainMenu(menu_items)
                             return self.kosync_whisper_backward == SYNC_STRATEGY.PROMPT
                         end,
                         callback = function()
-                            self.kosync_whisper_backward = SYNC_STRATEGY.PROMPT
+                            self:setWhisperBackward(SYNC_STRATEGY.PROMPT)
                         end,
                     },
                     {
@@ -180,7 +180,7 @@ function KOSync:addToMainMenu(menu_items)
                             return self.kosync_whisper_backward == SYNC_STRATEGY.DISABLE
                         end,
                         callback = function()
-                            self.kosync_whisper_backward = SYNC_STRATEGY.DISABLE
+                            self:setWhisperBackward(SYNC_STRATEGY.DISABLE)
                         end,
                     },
                 },
@@ -223,7 +223,17 @@ end
 function KOSync:setCustomServer(server)
     DEBUG("set custom server", server)
     self.kosync_custom_server = server ~= "" and server or nil
-    self:onSaveSettings()
+    self:saveSettings()
+end
+
+function KOSync:setWhisperForward(strategy)
+    self.kosync_whisper_forward = strategy
+    self:saveSettings()
+end
+
+function KOSync:setWhisperBackward(strategy)
+    self.kosync_whisper_backward = strategy
+    self:saveSettings()
 end
 
 function KOSync:login()
@@ -324,7 +334,7 @@ function KOSync:doRegister(username, password)
         })
     end
 
-    self:onSaveSettings()
+    self:saveSettings()
 end
 
 function KOSync:doLogin(username, password)
@@ -359,13 +369,13 @@ function KOSync:doLogin(username, password)
         })
     end
 
-    self:onSaveSettings()
+    self:saveSettings()
 end
 
 function KOSync:logout()
     self.kosync_userkey = nil
     self.kosync_auto_sync = true
-    self:onSaveSettings()
+    self:saveSettings()
 end
 
 function KOSync:getLastPercent()
@@ -555,7 +565,7 @@ function KOSync:getProgress(manual)
     end
 end
 
-function KOSync:onSaveSettings()
+function KOSync:saveSettings()
     local settings = {
         custom_server = self.kosync_custom_server,
         username = self.kosync_username,
@@ -605,6 +615,7 @@ function KOSync:_onResume()
 end
 
 function KOSync:_onFlushSettings()
+    if self.ui == nil or self.ui.document == nil then return end
     self:updateProgress()
 end
 

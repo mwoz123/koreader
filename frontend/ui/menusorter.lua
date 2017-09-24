@@ -86,7 +86,10 @@ function MenuSorter:sort(item_table, order)
                 if v then
                     if v.id == separator_id then
                         new_index = new_index - 1
-                        menu_table[order_id][new_index].separator = true
+                        -- ignore separator if the menu starts with it
+                        if new_index > 0 then
+                            menu_table[order_id][new_index].separator = true
+                        end
                     else
                         -- fix the index
                         menu_table[order_id][new_index] = tmp_menu_table[i]
@@ -103,17 +106,28 @@ function MenuSorter:sort(item_table, order)
         end
     end
 
-    -- now do the submenus
-    for i,sub_menu in ipairs(sub_menus) do
-        local sub_menu_position = self:findById(menu_table["KOMenu:menu_buttons"], sub_menu)
-        if sub_menu_position then
-            local sub_menu_content = menu_table[sub_menu]
-            sub_menu_position.text = sub_menu_content.text
-            sub_menu_position.sub_item_table = sub_menu_content
-            -- remove reference from top level output
-            menu_table[sub_menu] = nil
-            -- remove reference from input so it won't show up as orphaned
-            item_table[sub_menu] = nil
+    -- We should not rely on Lua to magically order the items as we expected:
+    --     Some menu items cannot be referred until its parent menu item is inserted into
+    --     menu_table["KOMenu:menu_buttons"].
+    -- So we loop until nothing changed anymore.
+    local changed = true
+    while changed do
+        changed = false
+        -- now do the submenus
+        for i,sub_menu in ipairs(sub_menus) do
+            if menu_table[sub_menu] ~= nil then
+                local sub_menu_position = self:findById(menu_table["KOMenu:menu_buttons"], sub_menu)
+                if sub_menu_position then
+                    changed = true
+                    local sub_menu_content = menu_table[sub_menu]
+                    sub_menu_position.text = sub_menu_content.text
+                    sub_menu_position.sub_item_table = sub_menu_content
+                    -- remove reference from top level output
+                    menu_table[sub_menu] = nil
+                    -- remove reference from input so it won't show up as orphaned
+                    item_table[sub_menu] = nil
+                end
+            end
         end
     end
     -- @TODO avoid this extra mini-loop

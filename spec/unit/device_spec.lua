@@ -1,4 +1,5 @@
 describe("device module", function()
+    -- luacheck: push ignore
     local mock_fb, mock_input
     local iopen = io.open
     local osgetenv = os.getenv
@@ -18,12 +19,11 @@ describe("device module", function()
             end
         }
         require("commonrequire")
+        package.unloadAll()
     end)
 
     before_each(function()
         package.loaded['ffi/framebuffer_mxcfb'] = mock_fb
-        package.loaded['device/kindle/device'] = nil
-        package.loaded['device/kobo/device'] = nil
         mock_input = require('device/input')
         stub(mock_input, "open")
         stub(os, "getenv")
@@ -171,7 +171,6 @@ describe("device module", function()
             stub(Device, "isKobo")
 
             Device.isKobo.returns(true)
-            local saved_noop = UIManager._resetAutoSuspendTimer
             UIManager:init()
 
             ReaderUI:doShowReader(sample_pdf)
@@ -185,9 +184,6 @@ describe("device module", function()
             Device.powerd.beforeSuspend:revert()
             Device.isKobo:revert()
             readerui.onFlushSettings:revert()
-            UIManager._startAutoSuspend = nil
-            UIManager._stopAutoSuspend = nil
-            UIManager._resetAutoSuspendTimer = saved_noop
             readerui:onClose()
         end)
     end)
@@ -251,6 +247,7 @@ describe("device module", function()
         end)
 
         it("oasis should interpret orientation event", function()
+            package.unload('device/kindle/device')
             io.open = function(filename, mode)
                 if filename == "/proc/usid" then
                     return {
@@ -290,4 +287,5 @@ describe("device module", function()
             UIManager.onRotation:revert()
         end)
     end)
+    -- luacheck: pop
 end)

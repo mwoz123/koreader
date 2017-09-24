@@ -38,6 +38,11 @@ function ZSync:addToMainMenu(menu_items)
                     return self.filemq_client == nil
                 end,
                 callback = function()
+                    local NetworkMgr = require("ui/network/manager")
+                    if not NetworkMgr:isOnline() then
+                        NetworkMgr:promptWifiOn()
+                        return
+                    end
                     if not self.filemq_server then
                         self:publish()
                     else
@@ -223,7 +228,7 @@ function ZSync:subscribe()
     self.received = {}
     local zsync = self
     require("ui/downloadmgr"):new{
-        title = _("Choose inbox"),
+        title = _("Choose inbox by long-pressing"),
         onConfirm = function(inbox)
             G_reader_settings:saveSetting("inbox_dir", inbox)
             zsync:onChooseInbox(inbox)

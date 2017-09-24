@@ -1,16 +1,15 @@
 describe("Readerfooter module", function()
-    local DocumentRegistry, ReaderUI, MenuSorter, DocSettings, UIManager, DEBUG
+    local DocumentRegistry, ReaderUI, DocSettings, UIManager
     local purgeDir, Screen
+    local tapFooterMenu
 
     setup(function()
         require("commonrequire")
+        package.unloadAll()
         DocumentRegistry = require("document/documentregistry")
-        ReaderUI = require("apps/reader/readerui")
-        ReaderUI = require("apps/reader/readerui")
         DocSettings = require("docsettings")
+        ReaderUI = require("apps/reader/readerui")
         UIManager = require("ui/uimanager")
-        MenuSorter = require("ui/menusorter")
-        DEBUG = require("dbg")
         purgeDir = require("ffi/util").purgeDir
         Screen = require("device").screen
 
@@ -43,6 +42,7 @@ describe("Readerfooter module", function()
             book_time_to_read = true,
             chapter_time_to_read = true,
         })
+        UIManager:run()
     end)
 
     it("should setup footer as visible in all_at_once mode", function()
@@ -431,8 +431,8 @@ describe("Readerfooter module", function()
 
     it("should support toggle footer through menu if tap zone is disabled", function()
         local saved_tap_zone_minibar = DTAP_ZONE_MINIBAR
-        DTAP_ZONE_MINIBAR.w = 0
-        DTAP_ZONE_MINIBAR.h = 0
+        DTAP_ZONE_MINIBAR.w = 0 --luacheck: ignore
+        DTAP_ZONE_MINIBAR.h = 0 --luacheck: ignore
 
         local sample_pdf = "spec/front/unit/data/2col.pdf"
         purgeDir(DocSettings:getSidecarDir(sample_pdf))
@@ -470,7 +470,7 @@ describe("Readerfooter module", function()
         tapFooterMenu(fake_menu, "Toggle mode")
         assert.is.same(2, footer.mode)
 
-        DTAP_ZONE_MINIBAR = saved_tap_zone_minibar
+        DTAP_ZONE_MINIBAR = saved_tap_zone_minibar --luacheck: ignore
     end)
 
     it("should remove and add modes to footer text in all_at_once mode", function()
@@ -594,7 +594,7 @@ describe("Readerfooter module", function()
         local footer = readerui.view.footer
 
         assert.truthy(footer.has_no_mode)
-        assert.truthy(readerui.view.footer_visible)
+        assert.falsy(readerui.view.footer_visible)
         assert.is.same(21, footer:getHeight())
     end)
 

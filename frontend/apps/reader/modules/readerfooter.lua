@@ -16,7 +16,6 @@ local util = require("util")
 local _ = require("gettext")
 local Screen = Device.screen
 
-
 local MODE = {
     off = 0,
     page_progress = 1,
@@ -43,10 +42,8 @@ local footerTextGeneratorMap = {
     frontlight = function()
         if not Device:hasFrontlight() then return "L: NA" end
         local powerd = Device:getPowerDevice()
-        if powerd.is_fl_on ~= nil and powerd.is_fl_on == true then
-            if powerd.fl_intensity ~= nil then
-                return ("L: %d%%"):format(powerd.fl_intensity)
-            end
+        if powerd:isFrontlightOn() then
+            return ("L: %d%%"):format(powerd:frontlightIntensity())
         else
             return "L: Off"
         end
@@ -197,13 +194,17 @@ function ReaderFooter:init()
     self[1] = self.footer_positioner
 
     self.mode = G_reader_settings:readSetting("reader_footer_mode") or self.mode
+    if self.has_no_mode then
+        self.mode = MODE.off
+        self.view.footer_visible = false
+        self:resetLayout()
+    end
     if self.settings.all_at_once then
         self.view.footer_visible = (self.mode ~= MODE.off)
         self:updateFooterTextGenerator()
     else
         self:applyFooterMode()
     end
-
     if self.settings.auto_refresh_time then
         self:setupAutoRefreshTime()
     end
@@ -235,7 +236,7 @@ function ReaderFooter:setupTouchZones()
             screen_zone = footer_screen_zone,
             handler = function(ges) return self:onTapFooter(ges) end,
             overrides = {
-                'tap_forward', 'tap_backward',
+                'tap_forward', 'tap_backward', 'readerconfigmenu_tap',
             },
         },
         {
@@ -370,6 +371,15 @@ function ReaderFooter:addToMainMenu(menu_items)
                         self.has_no_mode = false
                         break
                     end
+                end
+                -- refresh margins position
+                if self.has_no_mode then
+                    self.ui:handleEvent(Event:new("SetPageMargins", self.view.document.configurable.page_margins))
+                    self.genFooterText = footerTextGeneratorMap.empty
+                    self.mode = MODE.off
+                elseif prev_has_no_mode then
+                    self.ui:handleEvent(Event:new("SetPageMargins", self.view.document.configurable.page_margins))
+                    G_reader_settings:saveSetting("reader_footer_mode", first_enabled_mode_num)
                 end
                 if callback then
                     should_update = callback(self)
@@ -548,6 +558,7 @@ end
 function ReaderFooter:onPageUpdate(pageno)
     self.pageno = pageno
     self.pages = self.view.document:getPageCount()
+    self.ui.doc_settings:saveSetting("doc_pages", self.pages) -- for Book information
     self:updateFooterPage()
 end
 
@@ -604,6 +615,9 @@ function ReaderFooter:onExitFlippingMode()
 end
 
 function ReaderFooter:onTapFooter(ges)
+    if self.has_no_mode then
+        return
+    end
     if self.view.flipping_visible then
         local pos = ges.pos
         local dimen = self.progress_bar.dimen
@@ -667,6 +681,12 @@ function ReaderFooter:onSuspend()
     if self.settings.auto_refresh_time then
         UIManager:unschedule(self.autoRefreshTime)
         self.onCloseDocument = nil
+    end
+end
+
+function ReaderFooter:onFrontlightStateChanged()
+    if self.settings.frontlight then
+        self:updateFooter()
     end
 end
 

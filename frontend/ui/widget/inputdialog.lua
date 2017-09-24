@@ -78,9 +78,9 @@ local InputDialog = InputContainer:new{
     text_width = nil,
     text_height = nil,
 
-    title_face = Font:getFace("tfont", 22),
-    description_face = Font:getFace("cfont", 20),
-    input_face = Font:getFace("cfont", 20),
+    title_face = Font:getFace("x_smalltfont"),
+    description_face = Font:getFace("x_smallinfofont"),
+    input_face = Font:getFace("x_smallinfofont"),
 
     title_padding = Screen:scaleBySize(5),
     title_margin = Screen:scaleBySize(2),
@@ -147,7 +147,6 @@ function InputDialog:init()
         scroll = false,
         parent = self,
     }
-
     self.button_table = ButtonTable:new{
         width = self.width,
         button_font_face = "cfont",

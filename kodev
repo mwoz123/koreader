@@ -94,7 +94,14 @@ ${SUPPORTED_TARGETS}"
             assert_ret_zero $?
             ;;
         android)
-            [[ -n ${NDK+x} ]] || export NDK="${CURDIR}/base/toolchain/android-ndk-r12b"
+            if [ -z "${NDK+x}" ]; then
+                if [ -n "${ANDROID_NDK+x}" ]; then
+                    # some distributions use `ANDROID_NDK` instead, fall back to it
+                    export NDK="${ANDROID_NDK}"
+                else
+                    export NDK="${CURDIR}/base/toolchain/android-ndk-r12b"
+                fi
+            fi
             [ -e "${CURDIR}/base/toolchain/android-toolchain/bin/arm-linux-androideabi-gcc" ] || {
                 { [ -e "${NDK}" ] || make -C "${CURDIR}/base/toolchain" android-ndk; }
                 make android-toolchain
@@ -178,7 +185,11 @@ function kodev-release() {
     # SUPPORTED_RELEASE_TARGETS=$(echo ${SUPPORTED_TARGETS} | sed 's/win32//')
     SUPPORTED_RELEASE_TARGETS="${SUPPORTED_TARGETS/emu*/""}"
     RELEASE_HELP_MSG="
-usage: release <TARGET>
+usage: release <OPTIONS> <TARGET>
+
+OPTIONS:
+
+    --ignore-translation  do not fetch translation for release
 
 TARGET:
 ${SUPPORTED_RELEASE_TARGETS}"
@@ -187,10 +198,15 @@ ${SUPPORTED_RELEASE_TARGETS}"
         exit 1
     }
 
+    ignore_translation=0
+
     while [[ $1 == '-'* ]]; do
         PARAM=$(echo "$1" | awk -F= '{print $1}')
         VALUE=$(echo "$1" | awk -F= '{print $2}')
         case $PARAM in
+            --ignore-translation)
+                ignore_translation=1
+                ;;
             -v | --verbose)
                 export VERBOSE=1
                 ;;
@@ -207,7 +223,17 @@ ${SUPPORTED_RELEASE_TARGETS}"
         shift 1
     done
 
-    which tx>/dev/null && make po || echo "WARN: Transifex client not found, no translation pulled."
+    if [ "${ignore_translation}" -eq 0 ]; then
+        if which tx>/dev/null; then
+            make po || {
+                echo "ERROR: failed to fetch translation."
+                echo "Tip: Use --ignore-translation OPTION if you want to build a release without translation."
+                exit 1
+            }
+        else
+            echo "WARN: Transifex client not found, no translation pulled."
+        fi
+    fi
 
     case $1 in
         kindle)
@@ -347,8 +373,12 @@ OPTIONS:
             [[ $args != /* ]] && args="${CURDIR}/${args}"
         fi
 
-        EMULATE_READER_W=${screen_width} EMULATE_READER_H=${screen_height} \
-            ./reader.lua -d "$args"
+        RETURN_VALUE=85
+        while [ $RETURN_VALUE -eq 85 ]; do
+            EMULATE_READER_W=${screen_width} EMULATE_READER_H=${screen_height} \
+                ./reader.lua -d "$args"
+            RETURN_VALUE=$?
+        done
     } || exit
     popd
 }
@@ -398,6 +428,7 @@ OPTIONS:
     make "${EMU_DIR}/.busted"
     pushd "${EMU_DIR}" && {
         test_path="./spec/$1/unit"
+        rm -rf "${test_path}"/data/*.sdr
 
         if [ ! -z "$2" ]; then
             test_path="${test_path}/$2"
@@ -462,14 +493,15 @@ OPTIONS:
                 -o "./spec/${target}/unit/verbose_print" \
                 --coverage \
                 --exclude-tags=nocov "${test_path}" || {
-                echo "Failed to run tests!" && exit 1
-            }
+                    echo "Failed to run tests!" && exit 1
+                }
         fi
         if [ ${show_full} -eq 1 ]; then
             cat luacov.report.out
         else
+            LUACOV_REPORT_SUMMARY=$(grep -nm1 -e '^Summary$' luacov.report.out | cut -d: -f1)
             tail -n \
-                +$(($(grep -nm1 -e '^Summary$' luacov.report.out | cut -d: -f1) - 1)) \
+                +$((LUACOV_REPORT_SUMMARY - 1)) \
                 luacov.report.out
         fi
     } || exit

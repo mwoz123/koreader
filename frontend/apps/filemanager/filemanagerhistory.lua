@@ -1,16 +1,14 @@
-local InputContainer = require("ui/widget/container/inputcontainer")
-local CenterContainer = require("ui/widget/container/centercontainer")
 local ButtonDialog = require("ui/widget/buttondialog")
-local UIManager = require("ui/uimanager")
+local FileManagerBookInfo = require("apps/filemanager/filemanagerbookinfo")
+local Font = require("ui/font")
+local InputContainer = require("ui/widget/container/inputcontainer")
 local Menu = require("ui/widget/menu")
+local UIManager = require("ui/uimanager")
+local RenderText = require("ui/rendertext")
 local Screen = require("device").screen
 local _ = require("gettext")
-local KeyValuePage = require("ui/widget/keyvaluepage")
-local DocSettings = require("docsettings")
-local InfoMessage = require("ui/widget/infomessage")
 local T = require("ffi/util").template
-local RenderText = require("ui/rendertext")
-local Font = require("ui/font")
+
 local FileManagerHistory = InputContainer:extend{
     hist_menu_title = _("History"),
 }
@@ -36,48 +34,6 @@ end
 
 function FileManagerHistory:onSetDimensions(dimen)
     self.dimen = dimen
-end
-
-function FileManagerHistory:buildBookInformationTable(book_props)
-    if book_props == nil then
-        return false
-    end
-
-    if book_props.authors == "" or book_props.authors == nil then
-        book_props.authors = _("N/A")
-    end
-
-    if book_props.title == "" or book_props.title == nil then
-        book_props.title = _("N/A")
-    end
-
-    if book_props.series == "" or book_props.series == nil then
-        book_props.series = _("N/A")
-    end
-
-    if book_props.pages == "" or book_props.pages == nil then
-        book_props.pages = _("N/A")
-    end
-
-    if book_props.language == "" or book_props.language == nil then
-        book_props.language = _("N/A")
-    end
-
-    return {
-        { T(_("Title: %1"), book_props.title), "" },
-        { T(_("Authors: %1"), book_props.authors), "" },
-        { T(_("Series: %1"), book_props.series), "" },
-        { T(_("Pages: %1"), book_props.pages), "" },
-        { T(_("Language: %1"), string.upper(book_props.language)), "" },
-    }
-end
-
-function FileManagerHistory:bookInformation(file)
-    local file_mode = lfs.attributes(file, "mode")
-    if file_mode ~= "file" then return false end
-    local book_stats = DocSettings:open(file):readSetting('stats')
-    if book_stats == nil then return false end
-    return self:buildBookInformationTable(book_stats)
 end
 
 function FileManagerHistory:onMenuHold(item)
@@ -112,18 +68,9 @@ function FileManagerHistory:onMenuHold(item)
             {
                 {
                     text = _("Book information"),
+                    enabled = FileManagerBookInfo:isSupported(item.file),
                     callback = function()
-                        local book_info_metadata = FileManagerHistory:bookInformation(item.file)
-                        if  book_info_metadata then
-                            UIManager:show(KeyValuePage:new{
-                                title = _("Book information"),
-                                kv_pairs = book_info_metadata,
-                            })
-                        else
-                            UIManager:show(InfoMessage:new{
-                                text = _("Cannot fetch information for a selected book"),
-                            })
-                        end
+                        FileManagerBookInfo:show(item.file)
                         UIManager:close(self.histfile_dialog)
                     end,
                  },
@@ -146,27 +93,24 @@ function FileManagerHistory:onMenuHold(item)
 end
 
 function FileManagerHistory:onShowHist()
-    local menu_container = CenterContainer:new{
-        dimen = Screen:getSize(),
-    }
-
     self.hist_menu = Menu:new{
         ui = self.ui,
-        width = Screen:getWidth()-50,
-        height = Screen:getHeight()-50,
-        show_parent = menu_container,
+        width = Screen:getWidth(),
+        height = Screen:getHeight(),
+        is_borderless = true,
         onMenuHold = self.onMenuHold,
         _manager = self,
     }
     self:updateItemTable()
-
-    table.insert(menu_container, self.hist_menu)
-
     self.hist_menu.close_callback = function()
-        UIManager:close(menu_container)
+        -- Close it at next tick so it stays displayed
+        -- while a book is opening (avoids a transient
+        -- display of the underlying File Browser)
+        UIManager:nextTick(function()
+            UIManager:close(self.hist_menu)
+        end)
     end
-
-    UIManager:show(menu_container)
+    UIManager:show(self.hist_menu)
     return true
 end
 

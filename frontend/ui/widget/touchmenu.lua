@@ -1,26 +1,27 @@
-local InputContainer = require("ui/widget/container/inputcontainer")
-local FrameContainer = require("ui/widget/container/framecontainer")
-local LeftContainer = require("ui/widget/container/leftcontainer")
-local RightContainer = require("ui/widget/container/rightcontainer")
-local CenterContainer = require("ui/widget/container/centercontainer")
-local HorizontalGroup = require("ui/widget/horizontalgroup")
-local VerticalGroup = require("ui/widget/verticalgroup")
-local HorizontalSpan = require("ui/widget/horizontalspan")
-local VerticalSpan = require("ui/widget/verticalspan")
-local TextWidget = require("ui/widget/textwidget")
-local LineWidget = require("ui/widget/linewidget")
-local IconButton = require("ui/widget/iconbutton")
-local GestureRange = require("ui/gesturerange")
-local Button = require("ui/widget/button")
-local UIManager = require("ui/uimanager")
-local Device = require("device")
-local Screen = Device.screen
-local Geom = require("ui/geometry")
-local Font = require("ui/font")
 local Blitbuffer = require("ffi/blitbuffer")
-local getMenuText = require("util").getMenuText
+local Button = require("ui/widget/button")
+local CenterContainer = require("ui/widget/container/centercontainer")
+local CheckMark = require("ui/widget/checkmark")
+local Device = require("device")
+local Font = require("ui/font")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local Geom = require("ui/geometry")
+local GestureRange = require("ui/gesturerange")
+local HorizontalGroup = require("ui/widget/horizontalgroup")
+local HorizontalSpan = require("ui/widget/horizontalspan")
+local IconButton = require("ui/widget/iconbutton")
+local InputContainer = require("ui/widget/container/inputcontainer")
+local LeftContainer = require("ui/widget/container/leftcontainer")
+local LineWidget = require("ui/widget/linewidget")
+local RightContainer = require("ui/widget/container/rightcontainer")
+local TextWidget = require("ui/widget/textwidget")
+local UIManager = require("ui/uimanager")
+local VerticalGroup = require("ui/widget/verticalgroup")
+local VerticalSpan = require("ui/widget/verticalspan")
 local util = require("ffi/util")
 local _ = require("gettext")
+local Screen = Device.screen
+local getMenuText = require("util").getMenuText
 
 --[[
 TouchMenuItem widget
@@ -30,7 +31,7 @@ local TouchMenuItem = InputContainer:new{
     vertical_align = "center",
     item = nil,
     dimen = nil,
-    face = Font:getFace("cfont", 22),
+    face = Font:getFace("smallinfofont"),
     show_parent = nil,
 }
 
@@ -56,17 +57,20 @@ function TouchMenuItem:init()
     if self.item.enabled_func then
         item_enabled = self.item.enabled_func()
     end
+    local item_checkable = false
     local item_checked = self.item.checked
     if self.item.checked_func then
+        item_checkable = true
         item_checked = self.item.checked_func()
     end
-    local checked_widget = TextWidget:new{
-        text = "√ ",
-        face = self.face,
+    local checked_widget = CheckMark:new{
+        checked = true,
     }
-    local unchecked_widget = TextWidget:new{
-        text = "",
-        face = self.face,
+    local unchecked_widget = CheckMark:new{
+        checked = false,
+    }
+    local empty_widget = CheckMark:new{
+        checkable = false,
     }
     self.item_frame = FrameContainer:new{
         width = self.dimen.w,
@@ -76,7 +80,11 @@ function TouchMenuItem:init()
             align = "center",
             CenterContainer:new{
                 dimen = Geom:new{ w = checked_widget:getSize().w },
-                item_checked and checked_widget or unchecked_widget
+                item_checkable and (
+                    item_checked and checked_widget
+                    or unchecked_widget
+                )
+                or empty_widget
             },
             TextWidget:new{
                 text = getMenuText(self.item),
@@ -308,7 +316,7 @@ local TouchMenu = InputContainer:new{
     item_height = Screen:scaleBySize(50),
     bordersize = Screen:scaleBySize(2),
     padding = Screen:scaleBySize(5),
-    fface = Font:getFace("ffont", 20),
+    fface = Font:getFace("ffont"),
     width = nil,
     height = nil,
     page = 1,

@@ -6,6 +6,7 @@ local DocSettings = require("docsettings")
 local DocumentRegistry = require("document/documentregistry")
 local Event = require("ui/event")
 local FileChooser = require("ui/widget/filechooser")
+local FileManagerBookInfo = require("apps/filemanager/filemanagerbookinfo")
 local FileManagerConverter = require("apps/filemanager/filemanagerconverter")
 local FileManagerHistory = require("apps/filemanager/filemanagerhistory")
 local FileManagerMenu = require("apps/filemanager/filemanagermenu")
@@ -15,45 +16,21 @@ local Geom = require("ui/geometry")
 local InfoMessage = require("ui/widget/infomessage")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local InputDialog = require("ui/widget/inputdialog")
-local KeyValuePage = require("ui/widget/keyvaluepage")
 local PluginLoader = require("pluginloader")
 local ReaderDictionary = require("apps/reader/modules/readerdictionary")
 local ReaderUI = require("apps/reader/readerui")
+local ReaderWikipedia = require("apps/reader/modules/readerwikipedia")
 local Screenshoter = require("ui/widget/screenshoter")
 local TextWidget = require("ui/widget/textwidget")
 local VerticalGroup = require("ui/widget/verticalgroup")
 local VerticalSpan = require("ui/widget/verticalspan")
 local UIManager = require("ui/uimanager")
+local filemanagerutil = require("apps/filemanager/filemanagerutil")
 local lfs = require("libs/libkoreader-lfs")
 local logger = require("logger")
 local util = require("ffi/util")
 local _ = require("gettext")
 local Screen = Device.screen
-
-local function getDefaultDir()
-    if Device:isKindle() then
-        return "/mnt/us/documents"
-    elseif Device:isKobo() then
-        return "/mnt/onboard"
-    elseif Device:isAndroid() then
-        return "/sdcard"
-    else
-        return "."
-    end
-end
-
-local function abbreviate(path)
-    local home_dir_name = G_reader_settings:readSetting("home_dir_display_name")
-    if home_dir_name ~= nil then
-        local home_dir = G_reader_settings:readSetting("home_dir") or getDefaultDir()
-        local len = home_dir:len()
-        local start = path:sub(1, len)
-        if start == home_dir then
-            return home_dir_name .. path:sub(len+1)
-        end
-    end
-    return path
-end
 
 local function restoreScreenMode()
     local screen_mode = G_reader_settings:readSetting("fm_screen_mode")
@@ -78,8 +55,8 @@ function FileManager:init()
     self.show_parent = self.show_parent or self
 
     self.path_text = TextWidget:new{
-        face = Font:getFace("infofont", 18),
-        text = abbreviate(self.root_path),
+        face = Font:getFace("xx_smallinfofont"),
+        text = filemanagerutil.abbreviate(self.root_path),
     }
 
     self.banner = FrameContainer:new{
@@ -87,7 +64,7 @@ function FileManager:init()
         bordersize = 0,
         VerticalGroup:new{
             TextWidget:new{
-                face = Font:getFace("tfont", 24),
+                face = Font:getFace("smalltfont"),
                 text = self.title,
             },
             CenterContainer:new{
@@ -121,7 +98,7 @@ function FileManager:init()
     self.file_chooser = file_chooser
 
     function file_chooser:onPathChanged(path)  -- luacheck: ignore
-        FileManager.instance.path_text:setText(abbreviate(path))
+        FileManager.instance.path_text:setText(filemanagerutil.abbreviate(path))
         UIManager:setDirty(FileManager.instance, function()
             return "ui", FileManager.instance.banner.dimen
         end)
@@ -164,21 +141,36 @@ function FileManager:init()
                     text = _("Purge .sdr"),
                     enabled = DocSettings:hasSidecarFile(util.realpath(file)),
                     callback = function()
-                        local file_abs_path = util.realpath(file)
-                        if file_abs_path then
-                            local autoremove_deleted_items_from_history = G_reader_settings:readSetting("autoremove_deleted_items_from_history") or false
-                            os.remove(DocSettings:getSidecarFile(file_abs_path))
-                            -- If the sidecar folder is empty, os.remove() can
-                            -- delete it. Otherwise, the following statement has no
-                            -- effect.
-                            os.remove(DocSettings:getSidecarDir(file_abs_path))
-                            self:refreshPath()
-                            -- also delete from history if autoremove_deleted_items_from_history is enabled
-                            if autoremove_deleted_items_from_history then
-                                require("readhistory"):removeItemByPath(file_abs_path)
-                            end
-                        end
-                        UIManager:close(self.file_dialog)
+                        local ConfirmBox = require("ui/widget/confirmbox")
+                        UIManager:show(ConfirmBox:new{
+                            text = util.template(_("Purge .sdr to reset settings for this document?\n\n%1"), self.file_dialog.title),
+                            ok_text = _("Purge"),
+                            ok_callback = function()
+                                local file_abs_path = util.realpath(file)
+                                if file_abs_path then
+                                    local autoremove_deleted_items_from_history = G_reader_settings:readSetting("autoremove_deleted_items_from_history") or false
+                                    os.remove(DocSettings:getSidecarFile(file_abs_path))
+                                    -- also remove backup, otherwise it will be used if we re-open this document
+                                    -- (it also allows for the sidecar folder to be empty and removed)
+                                    os.remove(DocSettings:getSidecarFile(file_abs_path)..".old")
+                                    -- If the sidecar folder is empty, os.remove() can
+                                    -- delete it. Otherwise, the following statement has no
+                                    -- effect.
+                                    os.remove(DocSettings:getSidecarDir(file_abs_path))
+                                    self:refreshPath()
+                                    -- also delete from history and update lastfile to top item in
+                                    -- history if autoremove_deleted_items_from_history is enabled
+                                    if autoremove_deleted_items_from_history then
+                                        local readhistory = require("readhistory")
+                                        readhistory:removeItemByPath(file_abs_path)
+                                        if G_reader_settings:readSetting("lastfile") == file_abs_path then
+                                            G_reader_settings:saveSetting("lastfile", #readhistory.hist > 0 and readhistory.hist[1].file or nil)
+                                        end
+                                    end
+                                end
+                                UIManager:close(self.file_dialog)
+                            end,
+                        })
                     end,
                 },
             },
@@ -202,10 +194,15 @@ function FileManager:init()
                                 local autoremove_deleted_items_from_history = G_reader_settings:readSetting("autoremove_deleted_items_from_history") or false
                                 local file_abs_path = util.realpath(file)
                                 deleteFile(file)
-                                -- also delete from history if autoremove_deleted_items_from_history is enabled
+                                -- also delete from history and update lastfile to top item in
+                                -- history if autoremove_deleted_items_from_history is enabled
                                 if autoremove_deleted_items_from_history then
                                     if file_abs_path then
-                                        require("readhistory"):removeItemByPath(file_abs_path)
+                                        local readhistory = require("readhistory")
+                                        readhistory:removeItemByPath(file_abs_path)
+                                        if G_reader_settings:readSetting("lastfile") == file_abs_path then
+                                            G_reader_settings:saveSetting("lastfile", #readhistory.hist > 0 and readhistory.hist[1].file or nil)
+                                        end
                                     end
                                 end
                                 self:refreshPath()
@@ -258,20 +255,9 @@ function FileManager:init()
                 },
                 {
                     text = _("Book information"),
-                    enabled = lfs.attributes(file, "mode") == "file"
-                        and not DocumentRegistry:getProvider(file).is_pic and true or false,
+                    enabled = FileManagerBookInfo:isSupported(file),
                     callback = function()
-                        local book_info_metadata = FileManager:bookInformation(file)
-                        if  book_info_metadata then
-                            UIManager:show(KeyValuePage:new{
-                                title = _("Book information"),
-                                kv_pairs = book_info_metadata,
-                            })
-                        else
-                            UIManager:show(InfoMessage:new{
-                                text = _("Cannot fetch information for a selected book"),
-                            })
-                        end
+                        FileManagerBookInfo:show(file)
                         UIManager:close(self.file_dialog)
                     end,
                 },
@@ -322,8 +308,8 @@ function FileManager:init()
         ui = self,
     })
     table.insert(self, ReaderDictionary:new{ ui = self })
+    table.insert(self, ReaderWikipedia:new{ ui = self })
 
-    self.loaded_modules = {}
     -- koreader plugins
     for _,plugin_module in ipairs(PluginLoader:loadPlugins()) do
         if not plugin_module.is_doc_only then
@@ -331,7 +317,7 @@ function FileManager:init()
                 plugin_module, { ui = self, })
             -- Keep references to the modules which do not register into menu.
             if ok then
-                table.insert(self.loaded_modules, plugin_or_err)
+                table.insert(self, plugin_or_err)
                 logger.info("FM loaded plugin", plugin_module.name,
                             "at", plugin_module.path)
             end
@@ -343,23 +329,6 @@ function FileManager:init()
     end
 
     self:handleEvent(Event:new("SetDimensions", self.dimen))
-end
-
-function FileManager:bookInformation(file)
-    local file_mode = lfs.attributes(file, "mode")
-    if file_mode ~= "file" then return false end
-    local book_stats = DocSettings:open(file):readSetting('stats')
-    if book_stats ~= nil then
-        return FileManagerHistory:buildBookInformationTable(book_stats)
-    end
-    local document = DocumentRegistry:openDocument(file)
-    if document.loadDocument then
-        document:loadDocument()
-        document:render()
-    end
-    book_stats = document:getProps()
-    book_stats.pages = document:getPageCount()
-    return FileManagerHistory:buildBookInformationTable(book_stats)
 end
 
 function FileManager:reinit(path)
@@ -482,16 +451,16 @@ function FileManager:renameFile(file)
                     })
                 else
                     UIManager:show(InfoMessage:new{
-                        text = util.template(_(
-                            "Failed to move history data of %1 to %2.\n" ..
-                            "The reading history may be lost."), file, dest),
+                        text = util.template(
+                            _("Failed to move history data of %1 to %2.\nThe reading history may be lost."),
+                            file, dest),
                     })
                 end
             end
         else
             UIManager:show(InfoMessage:new{
                 text = util.template(
-                           _("Failed to rename from %1 to %2"), file, dest),
+                    _("Failed to rename from %1 to %2"), file, dest),
             })
         end
     end
@@ -519,7 +488,7 @@ function FileManager:getSortingMenuTable()
     return {
         text_func = function()
             return util.template(
-                _("Sort by %1"),
+                _("Sort by: %1"),
                 collates[fm.file_chooser.collate][1]
             )
         end,
@@ -534,8 +503,42 @@ function FileManager:getSortingMenuTable()
     }
 end
 
+function FileManager:getStartWithMenuTable()
+    local start_with_setting = G_reader_settings:readSetting("start_with") or "filemanager"
+    local start_withs = {
+        filemanager = {_("file browser"), _("Start with file browser")},
+        history = {_("history"), _("Start with history")},
+        last = {_("last file"), _("Start with last file")},
+    }
+    local set_sw_table = function(start_with)
+        return {
+            text = start_withs[start_with][2],
+            checked_func = function()
+                return start_with_setting == start_with
+            end,
+            callback = function()
+                start_with_setting = start_with
+                G_reader_settings:saveSetting("start_with", start_with)
+            end,
+        }
+    end
+    return {
+        text_func = function()
+            return util.template(
+                _("Start with: %1"),
+                start_withs[start_with_setting][1]
+            )
+        end,
+        sub_item_table = {
+            set_sw_table("filemanager"),
+            set_sw_table("history"),
+            set_sw_table("last"),
+        }
+    }
+end
+
 function FileManager:showFiles(path)
-    path = path or G_reader_settings:readSetting("lastdir") or getDefaultDir()
+    path = path or G_reader_settings:readSetting("lastdir") or filemanagerutil.getDefaultDir()
     G_reader_settings:saveSetting("lastdir", path)
     restoreScreenMode()
     local file_manager = FileManager:new{

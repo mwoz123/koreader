@@ -47,12 +47,25 @@ function FileManagerMenu:init()
             ShowMenu = { { "Menu" }, doc = "show menu" },
         }
     end
+    self.activation_menu = G_reader_settings:readSetting("activate_menu")
+    if self.activation_menu == nil then
+        self.activation_menu = "swipe_tap"
+    end
 end
 
 function FileManagerMenu:initGesListener()
     if not Device:isTouchDevice() then return end
 
     self:registerTouchZones({
+        {
+            id = "filemanager_tap",
+            ges = "tap",
+            screen_zone = {
+                ratio_x = DTAP_ZONE_MENU.x, ratio_y = DTAP_ZONE_MENU.y,
+                ratio_w = DTAP_ZONE_MENU.w, ratio_h = DTAP_ZONE_MENU.h,
+            },
+            handler = function(ges) return self:onTapShowMenu(ges) end,
+        },
         {
             id = "filemanager_swipe",
             ges = "swipe",
@@ -86,20 +99,7 @@ function FileManagerMenu:setUpdateItemTable()
         checked_func = function() return self.ui.file_chooser.reverse_collate end,
         callback = function() self.ui:toggleReverseCollate() end
     }
-    self.menu_items.start_with_last_opened_file = {
-        text = _("Start with last opened file"),
-        checked_func = function() return
-            G_reader_settings:readSetting("open_last")
-        end,
-        enabled_func = function() return
-            G_reader_settings:readSetting("lastfile") ~= nil
-        end,
-        callback = function()
-            local open_last = G_reader_settings:readSetting("open_last") or false
-            G_reader_settings:saveSetting("open_last", not open_last)
-            G_reader_settings:flush()
-        end
-    }
+    self.menu_items.start_with = self.ui:getStartWithMenuTable()
     if Device:supportsScreensaver() then
         self.menu_items.screensaver = {
             text = _("Screensaver"),
@@ -269,18 +269,13 @@ function FileManagerMenu:setUpdateItemTable()
     self.menu_items.exit = {
         text = _("Exit"),
         callback = function()
-            if SetDefaults.settings_changed then
-                SetDefaults.settings_changed = false
-                UIManager:show(ConfirmBox:new{
-                    text = _("You have unsaved default settings. Save them now?"),
-                    ok_callback = function()
-                        SetDefaults:saveSettings()
-                    end,
-                })
-            else
-                UIManager:close(self.menu_container)
-                self.ui:onClose()
-            end
+            self:exitOrRestart()
+        end,
+    }
+    self.menu_items.restart_koreader = {
+        text = _("Restart KOReader"),
+        callback = function()
+            self:exitOrRestart(function() UIManager:restartKOReader() end)
         end,
     }
 
@@ -297,6 +292,34 @@ dbg:guard(FileManagerMenu, 'setUpdateItemTable',
             widget:addToMainMenu(mock_menu_items)
         end
     end)
+
+function FileManagerMenu:exitOrRestart(callback)
+    if SetDefaults.settings_changed then
+        UIManager:show(ConfirmBox:new{
+            text = _("You have unsaved default settings. Save them now?\nTap \"Cancel\" to return to KOReader."),
+            ok_text = _("Save"),
+            ok_callback = function()
+              SetDefaults.settings_changed = false
+              SetDefaults:saveSettings()
+              self:exitOrRestart(callback)
+            end,
+            cancel_text = _("Don't save"),
+            cancel_callback = function()
+                SetDefaults.settings_changed = false
+                self:exitOrRestart(callback)
+            end,
+            other_buttons = {{
+              text = _("Cancel"),
+            }}
+        })
+    else
+        UIManager:close(self.menu_container)
+        self.ui:onClose()
+        if callback then
+            callback()
+        end
+    end
+end
 
 function FileManagerMenu:onShowMenu()
     local tab_index = G_reader_settings:readSetting("filemanagermenu_tab_index") or 1
@@ -347,8 +370,15 @@ function FileManagerMenu:onCloseFileManagerMenu()
     return true
 end
 
+function FileManagerMenu:onTapShowMenu(ges)
+    if self.activation_menu ~= "swipe" then
+        self:onShowMenu()
+        return true
+    end
+end
+
 function FileManagerMenu:onSwipeShowMenu(ges)
-    if ges.direction == "south" then
+    if self.activation_menu ~= "tap" and ges.direction == "south" then
         self:onShowMenu()
         return true
     end

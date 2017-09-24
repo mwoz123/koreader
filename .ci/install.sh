@@ -10,7 +10,10 @@ echo "pwd: $(pwd)"
 ls
 
 # toss submodules if there are any changes
-if [ "$(git status --ignore-submodules=dirty --porcelain)" ]; then
+# if [ "$(git status --ignore-submodules=dirty --porcelain)" ]; then
+# "--ignore-submodules=dirty", removed temporarily, as it did not notice as
+# expected that base was updated and kept using old cached base
+if [ "$(git status --porcelain)" ]; then
     # what changed?
     git status
     # purge and reinit submodules
@@ -52,8 +55,8 @@ else
 fi
 
 # install shfmt
-SHFMT_URL="https://github.com/mvdan/sh/releases/download/v1.2.0/shfmt_v1.2.0_linux_amd64"
-if ! command -v shfmt; then
+SHFMT_URL="https://github.com/mvdan/sh/releases/download/v1.3.1/shfmt_v1.3.1_linux_amd64"
+if [ "$(shfmt --version)" != "v1.3.1" ]; then
     curl -sSL "${SHFMT_URL}" -o "${HOME}/bin/shfmt"
     chmod +x "${HOME}/bin/shfmt"
 else

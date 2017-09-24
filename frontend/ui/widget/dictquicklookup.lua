@@ -1,29 +1,29 @@
-local InputContainer = require("ui/widget/container/inputcontainer")
-local WidgetContainer = require("ui/widget/container/widgetcontainer")
-local FrameContainer = require("ui/widget/container/framecontainer")
-local CenterContainer = require("ui/widget/container/centercontainer")
-local LeftContainer = require("ui/widget/container/leftcontainer")
-local ScrollTextWidget = require("ui/widget/scrolltextwidget")
-local VerticalGroup = require("ui/widget/verticalgroup")
-local OverlapGroup = require("ui/widget/overlapgroup")
-local CloseButton = require("ui/widget/closebutton")
-local ButtonTable = require("ui/widget/buttontable")
-local InputDialog = require("ui/widget/inputdialog")
-local TextWidget = require("ui/widget/textwidget")
-local LineWidget = require("ui/widget/linewidget")
-local GestureRange = require("ui/gesturerange")
+local Blitbuffer = require("ffi/blitbuffer")
 local Button = require("ui/widget/button")
-local UIManager = require("ui/uimanager")
-local Screen = require("device").screen
+local ButtonTable = require("ui/widget/buttontable")
+local CenterContainer = require("ui/widget/container/centercontainer")
+local CloseButton = require("ui/widget/closebutton")
 local Device = require("device")
 local Geom = require("ui/geometry")
 local Event = require("ui/event")
 local Font = require("ui/font")
-local util = require("util")
+local FrameContainer = require("ui/widget/container/framecontainer")
+local GestureRange = require("ui/gesturerange")
+local InputContainer = require("ui/widget/container/inputcontainer")
+local InputDialog = require("ui/widget/inputdialog")
+local LeftContainer = require("ui/widget/container/leftcontainer")
+local LineWidget = require("ui/widget/linewidget")
+local OverlapGroup = require("ui/widget/overlapgroup")
+local ScrollTextWidget = require("ui/widget/scrolltextwidget")
+local TextWidget = require("ui/widget/textwidget")
+local UIManager = require("ui/uimanager")
+local VerticalGroup = require("ui/widget/verticalgroup")
+local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local logger = require("logger")
+local util = require("util")
 local _ = require("gettext")
+local Screen = Device.screen
 local T = require("ffi/util").template
-local Blitbuffer = require("ffi/blitbuffer")
 
 --[[
 Display quick lookup word definition
@@ -37,14 +37,12 @@ local DictQuickLookup = InputContainer:new{
     is_wiki = false,
     is_fullpage = false,
     dict_index = 1,
-    title_face = Font:getFace("tfont", 22),
+    title_face = Font:getFace("x_smalltfont"),
     content_face = Font:getFace("cfont", DDICT_FONT_SIZE),
     width = nil,
     height = nil,
     -- box of highlighted word, quick lookup window tries to not hide the word
     word_box = nil,
-    -- allow for disabling justification
-    dict_justify = G_reader_settings:nilOrTrue("dict_justify"),
 
     title_padding = Screen:scaleBySize(5),
     title_margin = Screen:scaleBySize(2),
@@ -225,6 +223,7 @@ function DictQuickLookup:update()
         padding = lookup_word_padding,
         margin = lookup_word_margin,
         bordersize = 0,
+        max_width = self.width,
         text = self.displayword,
         text_font_face = "tfont",
         text_font_size = lookup_word_font_size,
@@ -242,7 +241,8 @@ function DictQuickLookup:update()
             -- get a bit more height for definition as wiki has one less button raw
             height = self.is_fullpage and self.height*0.75 or self.height*0.7,
             dialog = self,
-            justified = self.dict_justify,
+            -- allow for disabling justification
+            justified = G_reader_settings:nilOrTrue("dict_justify"),
         },
     }
     -- Different sets of buttons if fullpage or not
@@ -252,7 +252,7 @@ function DictQuickLookup:update()
         buttons = {
             {
                 {
-                    text = "Save as epub",
+                    text = _("Save as EPUB"),
                     callback = function()
                         local InfoMessage = require("ui/widget/infomessage")
                         local ConfirmBox = require("ui/widget/confirmbox")
@@ -265,9 +265,8 @@ function DictQuickLookup:update()
                         local filename = cleaned_lookupword .. "."..string.upper(lang)..".epub"
                         -- Find a directory to save file into
                         local dir = G_reader_settings:readSetting("wikipedia_save_dir")
-                        if not dir then dir = G_reader_settings:readSetting("download_dir") end -- OPDS dir
                         if not dir then dir = G_reader_settings:readSetting("home_dir") end
-                        if not dir then dir = G_reader_settings:readSetting("lastdir") end
+                        if not dir then dir = require("apps/filemanager/filemanagerutil").getDefaultDir() end
                         if not dir then
                             UIManager:show(InfoMessage:new{
                                 text = _("No directory to save the page to could be found."),
@@ -310,7 +309,7 @@ function DictQuickLookup:update()
                     end,
                 },
                 {
-                    text = "Close",
+                    text = _("Close"),
                     callback = function()
                         UIManager:close(self)
                     end,
@@ -329,9 +328,13 @@ function DictQuickLookup:update()
                 },
                 {
                     text = self:getHighlightText(),
-                    enabled = select(2, self:getHighlightText()),
+                    enabled = true,
                     callback = function()
-                        self.ui:handleEvent(Event:new("Highlight"))
+                        if self:getHighlightText() == "Highlight" then
+                            self.ui:handleEvent(Event:new("Highlight"))
+                        else
+                            self.ui:handleEvent(Event:new("Unhighlight"))
+                        end
                         self:update()
                     end,
                 },
@@ -632,6 +635,9 @@ function DictQuickLookup:onSwipe(arg, ges)
         if self.refresh_callback then self.refresh_callback() end
         -- trigger full refresh
         UIManager:setDirty(nil, "full")
+        -- a long diagonal swipe may also be used for taking a screenshot,
+        -- so let it propagate
+        return false
     end
     return true
 end

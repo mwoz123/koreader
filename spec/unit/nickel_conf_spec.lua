@@ -61,7 +61,7 @@ bar=baz
             fd:close()
 
             NickelConf._set_kobo_conf_path(fn)
-            assert.Equals(NickelConf.frontLightLevel.get(), 20)
+            assert.Equals(NickelConf.frontLightLevel.get(), 1)
             assert.Equals(NickelConf.frontLightState.get(), nil)
 
             os.remove(fn)
@@ -166,6 +166,7 @@ bar=baz
         end)
 
         it("should create config file", function()
+            local fd
             local fn = "/tmp/abcfoobarbaz449"
             assert.is_not.Equals(lfs.attributes(fn, "mode"), "file")
             finally(function() os.remove(fn) end)

@@ -1,22 +1,29 @@
+local CenterContainer = require("ui/widget/container/centercontainer")
+local ConfirmBox = require("ui/widget/confirmbox")
+local DataStorage = require("datastorage")
+local Font = require("ui/font")
 local InfoMessage = require("ui/widget/infomessage")
 local InputContainer = require("ui/widget/container/inputcontainer")
 local InputDialog = require("ui/widget/inputdialog")
-local MultiInputDialog = require("ui/widget/multiinputdialog")
-local ConfirmBox = require("ui/widget/confirmbox")
-local CenterContainer = require("ui/widget/container/centercontainer")
-local DataStorage = require("datastorage")
-local UIManager = require("ui/uimanager")
-local Screen = require("device").screen
 local Menu = require("ui/widget/menu")
-local Font = require("ui/font")
+local MultiInputDialog = require("ui/widget/multiinputdialog")
+local UIManager = require("ui/uimanager")
+local dump = require("dump")
+local isAndroid, android = pcall(require, "android")
 local util = require("ffi/util")
 local _ = require("gettext")
-local dump = require("dump")
+local Screen = require("device").screen
 
+local function getDefaultsPath()
+    local defaults_path = DataStorage:getDataDir() .. "/defaults.lua"
+    if isAndroid then
+        defaults_path = android.dir .. "/defaults.lua"
+    end
+    return defaults_path
+end
 
-local defaults_path = DataStorage:getDataDir() .. "/defaults.lua"
+local defaults_path = getDefaultsPath()
 local persistent_defaults_path = DataStorage:getDataDir() .. "/defaults.persistent.lua"
-
 
 local SetDefaults = InputContainer:new{
     defaults_name = {},
@@ -83,7 +90,7 @@ function SetDefaults:init()
     self.defaults_menu = Menu:new{
         width = Screen:getWidth()-15,
         height = Screen:getHeight()-15,
-        cface = Font:getFace("cfont", 22),
+        cface = Font:getFace("smallinfofont"),
         show_parent = menu_container,
         _manager = self,
     }
