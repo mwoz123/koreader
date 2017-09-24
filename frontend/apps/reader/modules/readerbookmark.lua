@@ -14,6 +14,7 @@ local Screen = require("device").screen
 
 local ReaderBookmark = InputContainer:new{
     bm_menu_title = _("Bookmarks"),
+    bbm_menu_title = _("Bookmark browsing mode"),
     bookmarks = nil,
 }
 
@@ -51,6 +52,20 @@ function ReaderBookmark:addToMainMenu(menu_items)
             self:onShowBookmark()
         end,
     }
+    if self.ui.document.info.has_pages then
+        menu_items.bookmark_browsing_mode = {
+            text = self.bbm_menu_title,
+            checked_func = function() return self.view.flipping_visible end,
+            callback = function(touchmenu_instance)
+                self:enableBookmarkBrowsingMode()
+                touchmenu_instance:closeMenu()
+            end,
+        }
+    end
+end
+
+function ReaderBookmark:enableBookmarkBrowsingMode()
+    self.ui:handleEvent(Event:new("ToggleBookmarkFlipping"))
 end
 
 function ReaderBookmark:isBookmarkInTimeOrder(a, b)
@@ -393,6 +408,18 @@ end
 function ReaderBookmark:onGotoNextBookmark(pn_or_xp)
     self:gotoBookmark(self:getNextBookmarkedPage(pn_or_xp))
     return true
+end
+
+function ReaderBookmark:getLatestBookmark()
+    local latest_bookmark = nil
+    local latest_bookmark_datetime = "0"
+    for i = 1, #self.bookmarks do
+        if self.bookmarks[i].datetime > latest_bookmark_datetime then
+            latest_bookmark_datetime = self.bookmarks[i].datetime
+            latest_bookmark = self.bookmarks[i]
+        end
+    end
+    return latest_bookmark
 end
 
 return ReaderBookmark
