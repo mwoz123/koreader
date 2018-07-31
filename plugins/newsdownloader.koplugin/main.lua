@@ -8,7 +8,9 @@ local InfoMessage = require("ui/widget/infomessage")
 local InputDialog = require("ui/widget/inputdialog")
 local LuaSettings = require("frontend/luasettings")
 local UIManager = require("ui/uimanager")
+local MultiInputDialog = require("ui/widget/multiinputdialog")
 local NetworkMgr = require("ui/network/manager")
+local Screen = require("device").screen
 local WidgetContainer = require("ui/widget/container/widgetcontainer")
 local dateparser = require("lib.dateparser")
 local ffi = require("ffi")
@@ -108,7 +110,7 @@ function NewsDownloader:addToMainMenu(menu_items)
                 sub_item_table = {
                     {
                         text = _("Change feeds configuration"),
-                        callback = function() self:changeFeedConfig() end,
+                        callback = function() self:changeFeedConfigUI() end,
                     },
                 },
             },
@@ -438,6 +440,99 @@ function NewsDownloader:changeFeedConfig()
     }
     UIManager:show(config_editor)
     config_editor:onShowKeyboard()
+end
+
+function NewsDownloader:changeFeedConfigUI()
+    local feed_config_file = io.open(feed_config_path, "rb")
+    local config = feed_config_file:read("*all")
+    feed_config_file:close()
+    local text_info = "FTP address must be in the format ftp://example.domian.com\n"..
+    "Also supported is format with IP e.g: ftp://10.10.10.1\n"..
+    "Username and password are optional."
+    local hint_name = _("URL")
+    local text_name = ""
+    local hint_address = _("download all feeds")
+    local text_address = ""
+    local hint_username = _("limit")
+    local text_username = ""
+
+    local title
+    local text_button_right = _("Add")
+    if item then
+        title = _("Edit FTP account")
+        text_button_right = _("Apply")
+        text_name = item.text
+        text_address = item.address
+        text_username = item.username
+        text_password = item.password
+        text_folder = item.folder
+    else
+        title = _("Add FTP account")
+    end
+    self.settings_dialog = MultiInputDialog:new {
+        title = title,
+        fields = {
+            {
+                text = text_name,
+                input_type = "string",
+                hint = hint_name ,
+            },
+            {
+                text = text_address,
+                input_type = "checkbox",
+                hint = hint_address ,
+            },
+            {
+                text = text_username,
+                input_type = "number",
+                hint = hint_username,
+            },
+        },
+        buttons = {
+            {
+                {
+                    text = _("Cancel"),
+                    callback = function()
+                        self.settings_dialog:onClose()
+                        UIManager:close(self.settings_dialog)
+                    end
+                },
+                {
+                    text = _("Info"),
+                    callback = function()
+                        UIManager:show(InfoMessage:new{ text = text_info })
+                    end
+                },
+                {
+                    text = text_button_right,
+                    callback = function()
+                        local fields = MultiInputDialog:getFields()
+                        if fields[1] ~= "" and fields[2] ~= "" then
+                            if item then
+                                -- edit
+                                callback(item, fields)
+                            else
+                                -- add new
+                                callback(fields)
+                            end
+                            self.settings_dialog:onClose()
+                            UIManager:close(self.settings_dialog)
+                        else
+                            UIManager:show(InfoMessage:new{
+                                text = _("Please fill in all fields.")
+                            })
+                        end
+                    end
+                },
+            },
+        },
+        width = Screen:getWidth() * 0.95,
+        height = Screen:getHeight() * 0.2,
+        input_type = "text",
+    }
+    UIManager:show(self.settings_dialog)
+    self.settings_dialog:onShowKeyboard()
+
 end
 
 function NewsDownloader:onCloseDocument()
