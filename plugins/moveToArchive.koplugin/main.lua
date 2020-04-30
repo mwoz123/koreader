@@ -31,11 +31,11 @@ function MoveToArchive:addToMainMenu(menu_items)
         sub_item_table = {
             {
                 text = _("Move current book to archive"),
-                callback = self.moveToArchive,
+                callback = function() self:moveToArchive() end,
             },
             {
                 text = _("Copy current book to archive"),
-                callback = self.copyToArchive,
+                callback = function() self:copyToArchive() end,
             },
             {
                 text = _("Go to archive folder"),
