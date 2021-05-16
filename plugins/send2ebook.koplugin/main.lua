@@ -129,7 +129,6 @@ function Send2Ebook:process()
     UIManager:forceRePaint()
     UIManager:close(info)
 
-    local count = 1
     local ftp_config = send2ebook_settings:readSetting("ftp_config") or {address="Please setup ftp in settings", username="", password="", folder=""}
 
     local connection_url = FtpApi:generateUrl(ftp_config.address, util.urlEncode(ftp_config.username), util.urlEncode(ftp_config.password))
@@ -137,32 +136,48 @@ function Send2Ebook:process()
     local ftp_files_table = FtpApi:listFolder(connection_url .. ftp_config.folder, ftp_config.folder) --args looks strange but otherwise resonse with invalid paths
 
     if not ftp_files_table then
-      info = InfoMessage:new{ text = T(_("Could not get file list for server: %1, user: %2, folder: %3"), BD.ltr(ftp_config.address), ftp_config.username, BD.dirpath(ftp_config.folder)) }
+        info = InfoMessage:new{ text = T(_("Could not get file list for server: %1, user: %2, folder: %3"), BD.ltr(ftp_config.address), ftp_config.username, BD.dirpath(ftp_config.folder)) }
+        UIManager:show(info)
     else
-      local total_entries = table.getn(ftp_files_table)
-      logger.dbg("Send2Ebook: total_entries ", total_entries)
-      if total_entries > 1 then total_entries = total_entries -2 end --remove result "../" (upper folder) and "./" (current folder)
-      for idx, ftp_file in ipairs(ftp_files_table) do
-          logger.dbg("Send2Ebook: processing ftp_file:", ftp_file)
-          --- @todo Recursive download folders.
-          if ftp_file["type"] == "file" then
-
-              info = InfoMessage:new{ text = T(_("Processing %1/%2"), count, total_entries) }
-              UIManager:show(info)
-              UIManager:forceRePaint()
-              UIManager:close(info)
-
-              local remote_file_path = ftp_file["url"]
-              logger.dbg("Send2Ebook: remote_file_path", remote_file_path)
-              local local_file_path = download_dir_path .. ftp_file["text"]
-              count = count + Send2Ebook:downloadFileAndRemove(connection_url, remote_file_path, local_file_path)
-              end
-          info = InfoMessage:new{ text = T(_("Processing finished. Success: %1, failed: %2"), count -1, total_entries +1 - count) }
-          end
+        Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download_dir_path)
     end
-    UIManager:show(info)
     NetworkMgr:afterWifiAction()
 end
+
+function Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download_dir_path) {
+    local count = 0
+    local total_entries = table.getn(ftp_files_table)
+    if total_entries > 1 then total_entries = total_entries -2 end --remove result "../" (upper folder) and "./" (current folder) 
+    
+    logger.dbg(ftp_files_table)
+    local folder_name = ftp_files_table
+    for idx, ftp_file in ipairs(ftp_files_table) do
+        logger.dbg("Send2Ebook: processing ftp_file:", ftp_file)
+        if ftp_file["type"] == "file" then
+            
+            local info = InfoMessage:new{ text = T(_("Processing %1/%2 from dir: %3"), count + 1, total_entries, folder_name) }
+            UIManager:show(info)
+            UIManager:forceRePaint()
+            UIManager:close(info)
+            
+            local remote_file_path = ftp_file["url"]
+            logger.dbg("Send2Ebook: remote_file_path", remote_file_path)
+            local local_file_path = download_dir_path .. ftp_file["text"]
+            count = count + Send2Ebook:downloadFileAndRemove(connection_url, remote_file_path, local_file_path)
+        else
+            local remote_folder = ftp_files .. ftp_file
+            local inner_ftp_files_table = FtpApi:listFolder(connection_url .. remote_folder, remote_file_path ) --args looks strange but otherwise resonse with invalid paths
+            local local_file_path = download_dir_path .. ftp_file["text"]
+            util.makePath(local_file_path)
+            Send2Ebook:downloadFromFolder(connection_url, inner_ftp_files_table, local_download_path )
+        end
+        local info = InfoMessage:new{ text = T(_("Processing %3 finished. Success: %1, failed: %2"), count, total_entries +1 - count, folder_name) }
+        UIManager:show(info)
+        UIManager:forceRePaint()
+        UIManager:close(info)    
+    end
+  end
+}
 
 function Send2Ebook:removeReadActicles()
     logger.dbg("Send2Ebook: Removing read articles from :", download_dir_path)
