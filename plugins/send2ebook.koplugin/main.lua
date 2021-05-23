@@ -152,7 +152,7 @@ function Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download
     end
 
     logger.dbg(ftp_files_table)
-    local folder_name = ftp_files_table
+    local folder_name = ftp_files_table --TODO replace with impl
     for idx, ftp_file in ipairs(ftp_files_table) do
         logger.dbg("Send2Ebook: processing ftp_file:", ftp_file)
         if ftp_file["type"] == "file" then
@@ -167,11 +167,11 @@ function Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download
             local local_file_path = download_dir_subfolder .. ftp_file["text"]
             count = count + Send2Ebook:downloadFileAndRemove(connection_url, remote_file_path, local_file_path)
         else
-            local remote_folder = ftp_files .. ftp_file
+            local remote_folder = folder_name .. ftp_file
             local inner_ftp_files_table = FtpApi:listFolder(connection_url .. remote_folder, remote_file_path ) --args looks strange but otherwise resonse with invalid paths
             local local_file_path = download_dir_subfolder .. ftp_file["text"]
             util.makePath(local_file_path)
-            Send2Ebook:downloadFromFolder(connection_url, inner_ftp_files_table, local_download_path )
+            Send2Ebook:downloadFromFolder(connection_url, inner_ftp_files_table, local_file_path )
         end
         local info = InfoMessage:new{ text = T(_("Processing %3 finished. Success: %1, failed: %2"), count, total_entries +1 - count, folder_name) }
         UIManager:show(info)
