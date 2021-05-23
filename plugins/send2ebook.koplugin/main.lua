@@ -36,7 +36,7 @@ function Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_dow
         local file = io.open(local_download_path, "w")
         file:write(response)
         file:close()
-        FtpApi:delete(url)
+        -- FtpApi:delete(url)
         return 1
     else
         logger.err("Send2Ebook: Error. Invalid connection data? ")
@@ -144,40 +144,42 @@ function Send2Ebook:process()
     NetworkMgr:afterWifiAction()
 end
 
-function Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download_dir_path) {
+function Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download_dir_subfolder)
     local count = 0
     local total_entries = table.getn(ftp_files_table)
-    if total_entries > 1 then total_entries = total_entries -2 end --remove result "../" (upper folder) and "./" (current folder) 
-    
+    if total_entries > 1 then --remove result "../" (upper folder) and "./" (current folder)
+        total_entries = total_entries -2
+    end
+
     logger.dbg(ftp_files_table)
     local folder_name = ftp_files_table
     for idx, ftp_file in ipairs(ftp_files_table) do
         logger.dbg("Send2Ebook: processing ftp_file:", ftp_file)
         if ftp_file["type"] == "file" then
-            
+
             local info = InfoMessage:new{ text = T(_("Processing %1/%2 from dir: %3"), count + 1, total_entries, folder_name) }
             UIManager:show(info)
             UIManager:forceRePaint()
             UIManager:close(info)
-            
+
             local remote_file_path = ftp_file["url"]
             logger.dbg("Send2Ebook: remote_file_path", remote_file_path)
-            local local_file_path = download_dir_path .. ftp_file["text"]
+            local local_file_path = download_dir_subfolder .. ftp_file["text"]
             count = count + Send2Ebook:downloadFileAndRemove(connection_url, remote_file_path, local_file_path)
         else
             local remote_folder = ftp_files .. ftp_file
             local inner_ftp_files_table = FtpApi:listFolder(connection_url .. remote_folder, remote_file_path ) --args looks strange but otherwise resonse with invalid paths
-            local local_file_path = download_dir_path .. ftp_file["text"]
+            local local_file_path = download_dir_subfolder .. ftp_file["text"]
             util.makePath(local_file_path)
             Send2Ebook:downloadFromFolder(connection_url, inner_ftp_files_table, local_download_path )
         end
         local info = InfoMessage:new{ text = T(_("Processing %3 finished. Success: %1, failed: %2"), count, total_entries +1 - count, folder_name) }
         UIManager:show(info)
         UIManager:forceRePaint()
-        UIManager:close(info)    
+        UIManager:close(info)
     end
-  end
-}
+end
+
 
 function Send2Ebook:removeReadActicles()
     logger.dbg("Send2Ebook: Removing read articles from :", download_dir_path)
