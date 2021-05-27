@@ -133,50 +133,57 @@ function Send2Ebook:process()
 
     local connection_url = FtpApi:generateUrl(ftp_config.address, util.urlEncode(ftp_config.username), util.urlEncode(ftp_config.password))
 
-    local ftp_files_table = FtpApi:listFolder(connection_url .. ftp_config.folder, ftp_config.folder) --args looks strange but otherwise resonse with invalid paths
-
-    if not ftp_files_table then
-        info = InfoMessage:new{ text = T(_("Could not get file list for server: %1, user: %2, folder: %3"), BD.ltr(ftp_config.address), ftp_config.username, BD.dirpath(ftp_config.folder)) }
-        UIManager:show(info)
-    else
-        Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download_dir_path)
-    end
+    Send2Ebook:downloadFromFolder(connection_url, ftp_config.folder, download_dir_path)
     NetworkMgr:afterWifiAction()
 end
 
-function Send2Ebook:downloadFromFolder(connection_url, ftp_files_table, download_dir_subfolder)
-    local count = 0
-    local total_entries = table.getn(ftp_files_table)
-    if total_entries > 1 then --remove result "../" (upper folder) and "./" (current folder)
-        total_entries = total_entries -2
-    end
+function Send2Ebook:downloadFromFolder(connection_url, remote_folder, download_dir_subfolder)
+    logger.dbg("Send2Ebook processing folder: " .. remote_folder)
 
+    local ftp_files_table = FtpApi:listFolder(connection_url .. remote_folder, remote_folder) --args looks strange but otherwise resonse with invalid paths
     logger.dbg(ftp_files_table)
-    local folder_name = ftp_files_table --TODO replace with impl
+
+    -- if not ftp_files_table then
+        -- info = InfoMessage:new{ text = T(_("Could not get file list for server: %1, user: %2, folder: %3"), BD.ltr(ftp_config.address), ftp_config.username, BD.dirpath(ftp_config.folder)) }
+        -- UIManager:show(info)
+    -- end
+    local count = 0
+    -- local total_entries = table.getn(ftp_files_table)
+    -- if total_entries > 1 then --remove result "../" (upper folder) and "./" (current folder)
+    --     total_entries = total_entries -2
+    -- end
+
+    local folder_name = remote_folder
+    logger.dbg("Send2Ebook local remote folder", folder_name)
     for idx, ftp_file in ipairs(ftp_files_table) do
+        if ftp_file['url'] == '/.' or ftp_file['url'] == '/..' then
+            goto continue
+        end
         logger.dbg("Send2Ebook: processing ftp_file:", ftp_file)
         if ftp_file["type"] == "file" then
-
-            local info = InfoMessage:new{ text = T(_("Processing %1/%2 from dir: %3"), count + 1, total_entries, folder_name) }
+            -- local info = InfoMessage:new{ text = T(_("Processing %1/%2 from dir: %3"), count + 1, total_entries, folder_name) }
+            local info = InfoMessage:new{ text = T(_("Processing %1/ from dir: %2"), count + 1,  folder_name) }
             UIManager:show(info)
             UIManager:forceRePaint()
             UIManager:close(info)
 
-            local remote_file_path = ftp_file["url"]
+            local remote_file_path = ftp_file["text"]
             logger.dbg("Send2Ebook: remote_file_path", remote_file_path)
             local local_file_path = download_dir_subfolder .. ftp_file["text"]
             count = count + Send2Ebook:downloadFileAndRemove(connection_url, remote_file_path, local_file_path)
         else
-            local remote_folder = folder_name .. ftp_file
-            local inner_ftp_files_table = FtpApi:listFolder(connection_url .. remote_folder, remote_file_path ) --args looks strange but otherwise resonse with invalid paths
+            local new_remote_folder = remote_folder .. ftp_file["text"]
+            logger.dbg("Send2Ebook remote folder", new_remote_folder)
             local local_file_path = download_dir_subfolder .. ftp_file["text"]
             util.makePath(local_file_path)
-            Send2Ebook:downloadFromFolder(connection_url, inner_ftp_files_table, local_file_path )
+
+            Send2Ebook:downloadFromFolder(connection_url, new_remote_folder, local_file_path )
         end
         local info = InfoMessage:new{ text = T(_("Processing %3 finished. Success: %1, failed: %2"), count, total_entries +1 - count, folder_name) }
         UIManager:show(info)
         UIManager:forceRePaint()
         UIManager:close(info)
+        ::continue::
     end
 end
 
