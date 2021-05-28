@@ -28,6 +28,7 @@ local download_dir_path
 local send2ebook_settings
 
 function Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_download_path)
+    logger.dbg("Send2Ebook processing remote path:", remote_path)
     local url = connection_url .. remote_path
     local response = ftp.get(url ..";type=i")
 
@@ -39,7 +40,7 @@ function Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_dow
         -- FtpApi:delete(url)
         return 1
     else
-        logger.err("Send2Ebook: Error. Invalid connection data? ")
+        logger.err("Send2Ebook: Error. Invalid connection data? ", url)
         return 0
     end
 end
@@ -134,55 +135,61 @@ function Send2Ebook:process()
     local connection_url = FtpApi:generateUrl(ftp_config.address, util.urlEncode(ftp_config.username), util.urlEncode(ftp_config.password))
 
     Send2Ebook:downloadFromFolder(connection_url, ftp_config.folder, download_dir_path)
+    info = InfoMessage:new{ text = T(_("Processing finished. "))}
+    UIManager:show(info)
     NetworkMgr:afterWifiAction()
 end
 
 function Send2Ebook:downloadFromFolder(connection_url, remote_folder, download_dir_subfolder)
-    logger.dbg("Send2Ebook processing folder: " .. remote_folder)
+    logger.dbg("Send2Ebook processing folder: " , remote_folder)
 
-    local ftp_files_table = FtpApi:listFolder(connection_url .. remote_folder, remote_folder) --args looks strange but otherwise resonse with invalid paths
+    local ftp_files_table = FtpApi:listFolder(connection_url  .. "/" .. remote_folder)
     logger.dbg(ftp_files_table)
 
-    -- if not ftp_files_table then
+    if not ftp_files_table then
+        logger.dbg("Send2Ebook - skipping invalid entry for ", ftp_files_table)
+        return
         -- info = InfoMessage:new{ text = T(_("Could not get file list for server: %1, user: %2, folder: %3"), BD.ltr(ftp_config.address), ftp_config.username, BD.dirpath(ftp_config.folder)) }
         -- UIManager:show(info)
-    -- end
-    local count = 0
+    end
     -- local total_entries = table.getn(ftp_files_table)
-    -- if total_entries > 1 then --remove result "../" (upper folder) and "./" (current folder)
-    --     total_entries = total_entries -2
+    -- if total_entries < 2 then --remove result "../" (upper folder) and "./" (current folder)
+        -- logger.dbg("Send2Ebook - skipping empty folder: ", ftp_files_table)
+        -- return
     -- end
 
-    local folder_name = remote_folder
-    logger.dbg("Send2Ebook local remote folder", folder_name)
+    local processed = 0
     for idx, ftp_file in ipairs(ftp_files_table) do
-        if ftp_file['url'] == '/.' or ftp_file['url'] == '/..' then
+        local remote_name = ftp_file["text"]
+        logger.dbg("Send2Ebook: processing folder: ".. remote_folder, " entry: ".. remote_name)
+        if ftp_file['text'] == './' or ftp_file['text'] == '../' then
+            logger.dbg("Send2Ebook: skipped ftp_file:", remote_name)
             goto continue
         end
-        logger.dbg("Send2Ebook: processing ftp_file:", ftp_file)
         if ftp_file["type"] == "file" then
-            -- local info = InfoMessage:new{ text = T(_("Processing %1/%2 from dir: %3"), count + 1, total_entries, folder_name) }
-            local info = InfoMessage:new{ text = T(_("Processing %1/ from dir: %2"), count + 1,  folder_name) }
+            local info = InfoMessage:new{ text = T(_("Processing directory: %1\nProcessing file: %2"), remote_folder, remote_name ) }
+            UIManager:show(info)
+
+            local local_file_path = download_dir_subfolder .. remote_name
+            local remote_path = "/" .. remote_folder ..remote_name
+
+            processed = processed + Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_file_path)
+            UIManager:forceRePaint()
+            UIManager:close(info)
+        else
+            local info = InfoMessage:new{ text = T(_("Processing directory: %1"), remote_name ) }
+            local new_remote_folder = remote_folder .. "/".. remote_name
+            logger.dbg("Send2Ebook remote folder", new_remote_folder)
+            local local_file_path = download_dir_subfolder ..remote_name
+
+            util.makePath(local_file_path)
+
             UIManager:show(info)
             UIManager:forceRePaint()
             UIManager:close(info)
-
-            local remote_file_path = ftp_file["text"]
-            logger.dbg("Send2Ebook: remote_file_path", remote_file_path)
-            local local_file_path = download_dir_subfolder .. ftp_file["text"]
-            count = count + Send2Ebook:downloadFileAndRemove(connection_url, remote_file_path, local_file_path)
-        else
-            local new_remote_folder = remote_folder .. ftp_file["text"]
-            logger.dbg("Send2Ebook remote folder", new_remote_folder)
-            local local_file_path = download_dir_subfolder .. ftp_file["text"]
-            util.makePath(local_file_path)
-
             Send2Ebook:downloadFromFolder(connection_url, new_remote_folder, local_file_path )
         end
-        local info = InfoMessage:new{ text = T(_("Processing %3 finished. Success: %1, failed: %2"), count, total_entries +1 - count, folder_name) }
-        UIManager:show(info)
-        UIManager:forceRePaint()
-        UIManager:close(info)
+
         ::continue::
     end
 end
