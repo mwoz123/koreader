@@ -26,6 +26,8 @@ local config_key_custom_dl_dir = "custom_dl_dir";
 local default_download_dir_name = "send2ebook"
 local download_dir_path
 local send2ebook_settings
+local processingError = 0
+local processingFinished = 0
 
 function Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_download_path)
     logger.dbg("Send2Ebook processing remote path:", remote_path)
@@ -38,10 +40,10 @@ function Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_dow
         file:write(response)
         file:close()
         -- FtpApi:delete(url)
-        return 1
+        processingFinished = processingFinished + 1
     else
         logger.err("Send2Ebook: Error. Invalid connection data? ", url)
-        return 0
+        processingError = processingError + 1
     end
 end
 
@@ -135,7 +137,7 @@ function Send2Ebook:process()
     local connection_url = FtpApi:generateUrl(ftp_config.address, util.urlEncode(ftp_config.username), util.urlEncode(ftp_config.password))
 
     Send2Ebook:downloadFromFolder(connection_url, ftp_config.folder, download_dir_path)
-    info = InfoMessage:new{ text = T(_("Processing finished. "))}
+    info = InfoMessage:new{ text = T(_("Processing finished. Succesfully downloaded : %1, Could not download: %2"), processingFinished, processingError)}
     UIManager:show(info)
     NetworkMgr:afterWifiAction()
 end
@@ -158,7 +160,6 @@ function Send2Ebook:downloadFromFolder(connection_url, remote_folder, download_d
         -- return
     -- end
 
-    local processed = 0
     for idx, ftp_file in ipairs(ftp_files_table) do
         local remote_name = ftp_file["text"]
         logger.dbg("Send2Ebook: processing folder: ".. remote_folder, " entry: ".. remote_name)
@@ -173,7 +174,7 @@ function Send2Ebook:downloadFromFolder(connection_url, remote_folder, download_d
             local local_file_path = download_dir_subfolder .. remote_name
             local remote_path = "/" .. remote_folder ..remote_name
 
-            processed = processed + Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_file_path)
+            Send2Ebook:downloadFileAndRemove(connection_url, remote_path, local_file_path)
             UIManager:forceRePaint()
             UIManager:close(info)
         else
