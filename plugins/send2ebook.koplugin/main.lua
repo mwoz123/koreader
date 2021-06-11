@@ -144,8 +144,9 @@ end
 
 function Send2Ebook:downloadFromFolder(connection_url, remote_folder, download_dir_subfolder)
     logger.dbg("Send2Ebook processing folder: " , remote_folder)
+    logger.dbg("Send2Ebook processing folder: " , connection_url  .. remote_folder)
 
-    local ftp_files_table = FtpApi:listFolder(connection_url  .. "/" .. remote_folder)
+    local ftp_files_table = FtpApi:listFolder(connection_url  ..  remote_folder)
     logger.dbg(ftp_files_table)
 
     if not ftp_files_table then
@@ -231,7 +232,7 @@ function Send2Ebook:setCustomDownloadDirectory()
 end
 
 function Send2Ebook:editFtpConnection()
-    local item = send2ebook_settings:readSetting("ftp_config") or {text="ignore this field, it's not used here;) fill rest", address="ftp://", username="",password="" , folder="/"}
+    local item = send2ebook_settings:readSetting("ftp_config") or {text="ignore this field, it's not used here;) fill rest", address="ftp://", username="",password="" , folder="/"} -- TODO: replace unused text input with port
     local callbackEdit = function(updated_config, fields)
         local data = {text=fields[1], address=fields[2], username=fields[3],password=fields[4] , folder=fields[5]}
         send2ebook_settings:saveSetting("ftp_config", data)
